@@ -1,0 +1,4 @@
+# pip requirements.txt
+py-espeak-ng
+pandas
+num2words
