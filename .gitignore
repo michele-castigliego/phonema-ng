@@ -1,35 +1,30 @@
-# === Directory da ignorare ===
-DataSet
+# Ambiente virtuale
 phonema-env/
+
+# Dataset (symlink o directory reale)
+DataSet
+
+# Output generati
 output/
 
-# === File di output e modelli ===
+# Dipendenze e librerie scaricate
+third_party/
+
+# File di output comuni
 *.jsonl
 *.h5
 *.ckpt
 *.log
 *.npy
-*.npz
 *.pt
 *.onnx
 
-# === File temporanei ===
-*.tmp
-*.bak
-*.swp
-*~
-
-# === File di sistema / IDE ===
+# File temporanei e sistema
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 *.DS_Store
-*.vscode/
-.idea/
-.env
-.env.*
-
-# === File di debug/test ===
-tests/__pycache__/
+*.swp
+*~
 
