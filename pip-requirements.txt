@@ -2,3 +2,7 @@
 py-espeak-ng
 pandas
 num2words
+librosa
+matplotlib
+tqdm
+pyyaml

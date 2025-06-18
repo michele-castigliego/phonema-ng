@@ -23,15 +23,10 @@ PYTHONPATH=. python scripts/phonemize_all.py
 python scripts/extract_mels.py \
   --input_jsonl output/phonemized_train.jsonl \
   --output_dir output/mel_segments/train \
-  --index_csv output/mel_segments/train_index.csv \
-  --sr 16000 --n_fft 400 --hop_length 160 --n_mels 80
+  --index_csv output/mel_segments/train_index.csv
 
 # Generazione di tutti gli spettrogrammi
-python scripts/extract_mels_all.py \
-  --dataset_dir DataSet/cv-corpus-18.0-2024-06-14/it \
-  --phonemized_dir output/ \
-  --output_dir output/mel_segments/ \
-  --sr 16000 --n_fft 400 --hop_length 160 --n_mels 80
+python scripts/extract_mels_all.py
 
 
 # Output
@@ -45,5 +40,16 @@ output/
 ├── train_index.csv
 ├── dev_index.csv
 └── test_index.csv
+
+
+# Ispezione
+python scripts/inspect_sample.py \
+  --index_csv output/mel_segments/train_index.csv \
+  --id common_voice_it_20057445
+
+python scripts/inspect_sample.py \
+  --index_csv output/mel_segments/train_index.csv \
+  --id common_voice_it_20057445 \
+  --save output/plots/20057445.png
 
 
