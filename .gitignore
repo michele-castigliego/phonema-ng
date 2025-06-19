@@ -19,6 +19,7 @@ third_party/
 *.npy
 *.pt
 *.onnx
+*.png
 
 # File temporanei e sistema
 __pycache__/

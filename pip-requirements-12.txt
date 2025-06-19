@@ -4,3 +4,5 @@ tqdm
 soundfile
 pandas
 pyyaml
+matplotlib
+num2words

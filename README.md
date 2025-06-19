@@ -3,6 +3,18 @@ sudo add-apt-repository ppa:deadsnakes/ppa
 sudo apt update
 sudo apt install python3.11 python3.11-venv python3.11-dev
 
+# Riferimento ambienti
++-------------------------------+------------------------+---------+
+|           Script             |     Ambiente Virtuale  | Python  |
++-------------------------------+------------------------+---------+
+| scripts/phonemize.py         | phonema-env-py12       | 3.12    |
+| scripts/extract_mels_all.py  | phonema-env-py12       | 3.12    |
+| scripts/create_frame_targets.py | phonema-env-py11    | 3.11    |
+| scripts/train_model.py (es.) | phonema-env-py11       | 3.11    |
+| tests/test_mel_extraction.py | phonema-env-py12       | 3.12    |
+| tests/test_g2p.py            | phonema-env-py12       | 3.12    |
++-------------------------------+------------------------+---------+
+
 python3.11 -m venv phonema-env-py11
 source phonema-env-py11/bin/activate
 export PYTHONPATH=.
@@ -57,7 +69,7 @@ output/
 ├── dev_index.csv
 └── test_index.csv
 
-# Ispezione
+# TEST Ispezione
 python scripts/inspect_sample.py \
   --index_csv output/mel_segments/train_index.csv \
   --id common_voice_it_20057445
