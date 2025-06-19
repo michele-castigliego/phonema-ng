@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import yaml
 import os
-import ast
+import json
+import re
 
 def load_config(config_path="config.yaml"):
     with open(config_path, "r") as f:
@@ -43,15 +44,27 @@ def plot_mel_with_phonemes(mel, phonemes, save_path=None, title=None):
 def main(args):
     config = load_config()
 
-    df = pd.read_csv(args.index_csv)
+    try:
+        df = pd.read_csv(args.index_csv)
+    except Exception as e:
+        print(f"❌ Errore nella lettura del CSV: {e}")
+        return
+
     row = df[df['id'] == args.id]
     if row.empty:
         print(f"❌ ID '{args.id}' non trovato in {args.index_csv}")
         return
 
     mel_path = row.iloc[0]['mel_path']
-    phonemes_str = row.iloc[0]['phonemes']
-    phonemes = ast.literal_eval(phonemes_str)
+    raw_phonemes = row.iloc[0]['phonemes']
+
+    try:
+        raw_phonemes = re.sub(r'"{2,}', '"', raw_phonemes.strip())
+        phonemes = json.loads(raw_phonemes)
+    except Exception as e:
+        print(f"❌ Errore parsing phonemes (JSON): {e}")
+        print(f"🔎 Stringa malformata:\n{raw_phonemes}")
+        return
 
     mel_data = np.load(mel_path, allow_pickle=True)
     mel = mel_data['mel']
@@ -74,4 +87,3 @@ if __name__ == "__main__":
     parser.add_argument("--save", type=str, default=None, help="Path per salvare PNG (opzionale)")
     args = parser.parse_args()
     main(args)
-

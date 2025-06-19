@@ -46,6 +46,7 @@ def process_and_store(entry, args, config, out_dir):
 
         return {
             "id": uid,
+            "mel_path": str(out_path),
             "audio_path": audio_path,
             "phonemes": phonemes,
             "num_frames": mel.shape[0]
@@ -71,10 +72,10 @@ def main(args):
 
     if args.index_csv:
         with open(args.index_csv, "w", encoding="utf-8") as f:
-            f.write("id,audio_path,phonemes,num_frames\n")
+            f.write("id,mel_path,audio_path,phonemes,num_frames\n")
             for entry in results:
-                phonemes_str = json.dumps(entry["phonemes"], ensure_ascii=False)
-                f.write(f"{entry['id']},{entry['audio_path']},{phonemes_str},{entry['num_frames']}\n")
+                phonemes_str = json.dumps(entry["phonemes"], ensure_ascii=False).replace('"', '""')
+                f.write(f'{entry["id"]},{entry["mel_path"]},{entry["audio_path"]},"{phonemes_str}",{entry["num_frames"]}\n')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -90,3 +91,4 @@ if __name__ == "__main__":
     parser.add_argument("--num_workers", type=int, default=1)
     args = parser.parse_args()
     main(args)
+
