@@ -1,12 +1,17 @@
 import os
 import argparse
 import subprocess
+import yaml
 
-def run_extract(split, args):
+def load_config(config_path):
+    with open(config_path, "r") as f:
+        return yaml.safe_load(f)
+
+def run_extract(split, cfg, args):
     print(f"================= [{split.upper()}] =================")
-    jsonl = os.path.join(args.phonemized_dir, f"phonemized_{split}_wav.jsonl")
-    output_dir = os.path.join(args.output_dir, split)
-    index_csv = os.path.join(args.output_dir, f"{split}_index.csv")
+    jsonl = os.path.join(cfg["wav_output_dir"], f"phonemized_{split}_wav.jsonl")
+    output_dir = os.path.join(cfg["mel_output_dir"], split)
+    index_csv = os.path.join(cfg["mel_output_dir"], f"{split}_index.csv")
 
     cmd = [
         "python", "scripts/extract_mels.py",
@@ -14,10 +19,10 @@ def run_extract(split, args):
         "--output_dir", output_dir,
         "--index_csv", index_csv,
         "--config", args.config,
-        "--sr", str(args.sr),
-        "--n_fft", str(args.n_fft),
-        "--hop_length", str(args.hop_length),
-        "--n_mels", str(args.n_mels),
+        "--sr", str(cfg["sr"]),
+        "--n_fft", str(cfg["n_fft"]),
+        "--hop_length", str(cfg["hop_length"]),
+        "--n_mels", str(cfg["n_mels"]),
         "--num_workers", str(args.num_workers)
     ]
 
@@ -28,19 +33,15 @@ def run_extract(split, args):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--phonemized_dir", type=str, required=True)
-    parser.add_argument("--output_dir", type=str, required=True)
     parser.add_argument("--config", type=str, default="config.yaml")
-    parser.add_argument("--sr", type=int, default=16000)
-    parser.add_argument("--n_fft", type=int, default=400)
-    parser.add_argument("--hop_length", type=int, default=160)
-    parser.add_argument("--n_mels", type=int, default=80)
     parser.add_argument("--no_norm", action="store_true")
     parser.add_argument("--num_workers", type=int, default=1)
     args = parser.parse_args()
 
+    cfg = load_config(args.config)
     for split in ["train", "dev", "test"]:
-        run_extract(split, args)
+        run_extract(split, cfg, args)
 
 if __name__ == "__main__":
     main()
+

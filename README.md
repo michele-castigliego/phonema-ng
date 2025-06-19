@@ -1,27 +1,94 @@
-# Crea e attiva l’ambiente virtuale
+# PHONEMA - Riconoscimento Fonemico Frame-Level
+
+Pipeline completa per la fonemizzazione, conversione audio, estrazione di mel-spectrogrammi e generazione dei target fonemici frame-level a partire da Common Voice.
+
+---
+
+## 🔧 Requisiti
+
+```bash
 sudo add-apt-repository ppa:deadsnakes/ppa
 sudo apt update
 sudo apt install python3.11 python3.11-venv python3.11-dev
+```
 
-# Riferimento ambienti
-+-------------------------------+------------------------+---------+
-|           Script             |     Ambiente Virtuale  | Python  |
-+-------------------------------+------------------------+---------+
-| scripts/phonemize.py         | phonema-env-py12       | 3.12    |
-| scripts/extract_mels_all.py  | phonema-env-py12       | 3.12    |
-| scripts/create_frame_targets.py | phonema-env-py11    | 3.11    |
-| scripts/train_model.py (es.) | phonema-env-py11       | 3.11    |
-| tests/test_mel_extraction.py | phonema-env-py12       | 3.12    |
-| tests/test_g2p.py            | phonema-env-py12       | 3.12    |
-+-------------------------------+------------------------+---------+
+---
 
-# Output
+## 🧪 Ambienti Virtuali
+
+| Script                           | Ambiente Virtuale  | Python |
+|----------------------------------|---------------------|--------|
+| scripts/phonemize.py             | phonema-env-py12    | 3.12   |
+| scripts/convert_mp3_to_wav.py    | phonema-env-py12    | 3.12   |
+| scripts/extract_mels.py          | phonema-env-py12    | 3.12   |
+| scripts/create_frame_targets.py  | phonema-env-py11    | 3.11   |
+| scripts/train_model.py (esempio) | phonema-env-py11    | 3.11   |
+| tests/test_g2p.py                | phonema-env-py12    | 3.12   |
+
+```bash
+# Python 3.11
+python3.11 -m venv phonema-env-py11
+source phonema-env-py11/bin/activate
+export PYTHONPATH=.
+pip install -r pip-requirements-11.txt
+
+# Python 3.12
+python3.12 -m venv phonema-env-py12
+source phonema-env-py12/bin/activate
+export PYTHONPATH=.
+pip install -r pip-requirements-12.txt
+```
+
+---
+
+## 📦 Installazione `espeak-ng` (fork modificato)
+
+```bash
+cd third_party/espeak-ng/
+./autogen.sh
+./configure
+make
+sudo make install
+```
+
+---
+
+## ⚙️ File di configurazione
+
+```yaml
+# config.yaml
+
+dataset_dir: DataSet/cv-corpus-18.0-2024-06-14/it
+phonemized_dir: output/
+wav_output_dir: output/wav_trimmed/
+mel_output_dir: output/mel_segments/
+
+sr: 16000
+n_fft: 400
+hop_length: 160
+n_mels: 80
+top_db: 30
+
+phoneme_separator: "|"
+max_frames: null
+pad_mode: repeat
+
+label_smoothing: 0.0
+```
+
+---
+
+## 📁 Output directory
+
+```
 output/
-├── wav_trimmed
-│   ├── train
-│   ├── dev
-│   └── test
-│
+├── phonemized_train.jsonl
+├── phonemized_dev.jsonl
+├── phonemized_test.jsonl
+├── wav_trimmed/
+│   ├── train/
+│   ├── dev/
+│   └── test/
 ├── mel_segments/
 │   ├── train/
 │   ├── dev/
@@ -33,108 +100,56 @@ output/
 ├── train_index.csv
 ├── dev_index.csv
 └── test_index.csv
+```
 
+---
 
-python3.11 -m venv phonema-env-py11
-source phonema-env-py11/bin/activate
-export PYTHONPATH=.
-pip install --upgrade pip
-# Installa pacchetti
-pip install -r pip-requirements-11.txt
+## 🧵 Pipeline di elaborazione
 
+### 1. Fonemizzazione (`phonemize_all.py`)
+```bash
+python scripts/phonemize_all.py
+```
 
-python3.12 -m venv phonema-env-py12
-source phonema-env-py12/bin/activate
-export PYTHONPATH=.
-pip install --upgrade pip
-# Installa pacchetti
-pip install -r pip-requirements-12.txt
+### 2. Conversione MP3 → WAV + trimming (`convert_mp3_to_wav_all.py`)
+```bash
+python scripts/convert_mp3_to_wav_all.py --num_workers 8
+```
 
+### 3. Estrazione dei mel-spectrogrammi (`extract_mels_all.py`)
+```bash
+python scripts/extract_mels_all.py --num_workers 8
+```
 
+### 4. Generazione target fonemici (`create_frame_targets_all.py`)
+```bash
+python scripts/create_frame_targets_all.py
+```
 
-# Installa pacchetti
-pip install -r pip-requirements.txt
+---
 
-# Compilazione versione forkata e corretta di espeak-ng
-cd third_party/espeak-ng/
-./autogen.sh
-./configure
-make
-sudo make install
-
-# Generazione trascrizione fonetica, esempio singolo
-python phonemize_multilang.py \
-  --tsv DataSet/cv-corpus-18.0-2024-06-14/it/train.tsv \
-  --out output/phonemized_train.jsonl \
-  --audio_dir DataSet/cv-corpus-18.0-2024-06-14/it/clips \
-  --lang it
-
-# Generazione trascrizione fonetica per training, validation, test
-python scripts/phonemize_all.py \
-  --dataset_dir DataSet/cv-corpus-18.0-2024-06-14/it \
-  --output_dir output/ \
-  --lang it
-
-# Step intermedio di conversione
-python scripts/convert_mp3_to_wav.py \
-  --input_jsonl output/phonemized_train.jsonl \
-  --output_jsonl output/phonemized_train_wav.jsonl \
-  --output_wav_dir output/wav_trimmed/train \
-  --preemphasis \
-  --num_workers 8
-
-# Step intermedio di conversione train,dev,test
-python scripts/convert_mp3_to_wav_all.py \
-  --phonemized_dir output/ \
-  --output_dir output/ \
-  --preemphasis \
-  --num_workers 8
-
-
-
-## Estrazione dei Mel-spectrogrammi
-
-Gli script `extract_mels.py` e `extract_mels_all.py` generano i mel-spectrogrammi segmentati per fonema a partire dai file `.jsonl` prodotti dalla fonemizzazione.
-
-### ⚙️ Parametri audio
-
-I parametri principali (`sr`, `n_fft`, `hop_length`, `n_mels`, `top_db`, ecc.) sono definiti nel file `config.yaml`.
-
-### 🔹 Estrazione per singolo file
+## 🔍 Ispezione visiva
 
 ```bash
-python scripts/extract_mels.py \
-  --input_jsonl output/phonemized_train_wav.jsonl \
-  --output_dir output/mel_segments/train \
+python scripts/inspect_sample.py \
   --index_csv output/mel_segments/train_index.csv \
-  --num_workers 8
+  --id common_voice_it_20057443 \
+  --save output/plots/sample.png
+```
 
-python scripts/extract_mels_all.py \
-  --phonemized_dir output/ \
-  --output_dir output/mel_segments/ \
-  --num_workers 8
+---
 
-# TEST Ispezione
-python scripts/inspect_sample.py   --index_csv output/mel_segments/train_index.csv   --id common_voice_it_20057443   --save output/plots/sample.png
+## 📦 Backup progetto
 
+```bash
+tar --exclude='output' --exclude='phonema-env*' --exclude='third_party' --exclude='.git' -czvf phonema_project.tar.gz .
+```
 
-#Lo script create_frame_targets.py crea una sequenza che indica quale suono è presente in ogni momento dell’audio, distinguendo tra parlato e silenzio.
-python scripts/create_frame_targets.py \
-  --index_csv output/mel_segments/train_index.csv \
-  --input_dir output/mel_segments/train \
-  --output_dir output/frame_targets/train \
-  --config config.yaml
+---
 
-python scripts/create_frame_targets_all.py
+## 🧪 Versione C++ (sperimentale)
 
-
-#Archivio
-tar --exclude='output' --exclude='phonema-env' --exclude='third_party' --exclude='.git' -czvf phonema_project.tar.gz .
-
-
-
-## Estrarre i Mel-spectrogrammi con C++
-Una versione sperimentale in C++ dello script `extract_mels.py` si trova in `src/extract_mels/`.
+```bash
 cd src
 git clone https://github.com/jbeder/yaml-cpp.git
 cd yaml-cpp
@@ -143,15 +158,11 @@ cmake .. -DCMAKE_BUILD_TYPE=Release -DYAML_BUILD_SHARED_LIBS=ON
 make -j$(nproc)
 sudo make install
 
-
-Per compilarla utilizzare CMake:
-
-```bash
-mkdir build
-cd build
+cd ../..
+mkdir build && cd build
 cmake ..
 make
 ```
 
-L'eseguibile risultante `extract_mels` accetta gli stessi parametri
-principali dello script Python.
+L'eseguibile `extract_mels` accetta gli stessi parametri principali dello script Python.
+

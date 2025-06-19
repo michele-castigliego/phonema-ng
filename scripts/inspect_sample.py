@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import yaml
 import os
+import ast
 
 def load_config(config_path="config.yaml"):
     with open(config_path, "r") as f:
@@ -21,7 +22,7 @@ def plot_mel_with_phonemes(mel, phonemes, save_path=None, title=None):
 
     T = mel.shape[0]
     num_phonemes = len(phonemes)
-    step = T / num_phonemes
+    step = T / num_phonemes if num_phonemes > 0 else T
 
     for i, phon in enumerate(phonemes):
         center = int((i + 0.5) * step)
@@ -50,9 +51,10 @@ def main(args):
 
     mel_path = row.iloc[0]['mel_path']
     phonemes_str = row.iloc[0]['phonemes']
-    phonemes = eval(phonemes_str)
+    phonemes = ast.literal_eval(phonemes_str)
 
-    mel = np.load(mel_path)
+    mel_data = np.load(mel_path, allow_pickle=True)
+    mel = mel_data['mel']
 
     print(f"🔹 ID: {args.id}")
     print(f"🔸 Mel shape: {mel.shape}")
@@ -66,7 +68,7 @@ def main(args):
     )
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Ispeziona mel-spectrogramma (da .npy) e fonemi (da CSV)")
+    parser = argparse.ArgumentParser(description="Ispeziona mel-spectrogramma (da .npz) e fonemi (da CSV)")
     parser.add_argument("--index_csv", required=True)
     parser.add_argument("--id", required=True)
     parser.add_argument("--save", type=str, default=None, help="Path per salvare PNG (opzionale)")

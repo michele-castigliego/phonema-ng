@@ -26,7 +26,7 @@ def process_entry(entry, out_wav_dir, args, config):
         y, _ = librosa.effects.trim(y, top_db=config.get("top_db", 30))
         if sr_orig != config["sr"]:
             y = librosa.resample(y, orig_sr=sr_orig, target_sr=config["sr"])
-        if args.preemphasis:
+        if not args.no_preemphasis:
             y = preemphasis(y)
         sf.write(out_path, y, config["sr"])
     except Exception as e:
@@ -44,7 +44,7 @@ def main():
     parser.add_argument("--output_wav_dir", type=str, required=True)
     parser.add_argument("--config", type=str, default="config.yaml")
     parser.add_argument("--num_workers", type=int, default=1)
-    parser.add_argument("--preemphasis", action="store_true")
+    parser.add_argument("--no_preemphasis", action="store_true", help="Disattiva la pre-enfasi (attiva di default)")
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -69,3 +69,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
