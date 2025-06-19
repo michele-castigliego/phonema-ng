@@ -234,11 +234,27 @@ int main(int argc, char** argv) {
 
             // optional normalization
             if (!args.no_norm) {
-                float mean = 0.0f; size_t count = 0; 
-                for (auto &row : mel) for (float v : row) { mean += v; ++count; }
+                // convert power spectrum to decibel scale (ref=max)
+                float max_val = 0.0f;
+                for (const auto &row : mel) {
+                    for (float v : row) {
+                        if (v > max_val) max_val = v;
+                    }
+                }
+                float ref = std::max(max_val, 1e-10f);
+                float log_ref = 10.0f * std::log10(ref);
+                for (auto &row : mel) {
+                    for (float &v : row) {
+                        float val = std::max(v, 1e-10f);
+                        v = 10.0f * std::log10(val) - log_ref;
+                    }
+                }
+
+                float mean = 0.0f; size_t count = 0;
+                for (const auto &row : mel) for (float v : row) { mean += v; ++count; }
                 mean /= count;
                 float var = 0.0f;
-                for (auto &row : mel) for (float v : row) { float d = v - mean; var += d*d; }
+                for (const auto &row : mel) for (float v : row) { float d = v - mean; var += d*d; }
                 var /= count;
                 float std = std::sqrt(var + 1e-6f);
                 for (auto &row : mel) for (float &v : row) { v = (v - mean) / std; }
