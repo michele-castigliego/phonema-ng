@@ -13,9 +13,6 @@ def load_config(path):
     with open(path, "r") as f:
         return yaml.safe_load(f)
 
-def preemphasis(signal, coef=0.97):
-    return np.append(signal[0], signal[1:] - coef * signal[:-1])
-
 def process_sample(entry, args, config):
     audio_path = entry["audio_path"]
     phonemes = entry["phonemes"]
@@ -35,7 +32,7 @@ def process_sample(entry, args, config):
 
     S = librosa.feature.melspectrogram(
         y=y,
-        sr=args.sr,
+        sr=sr,
         n_fft=args.n_fft,
         hop_length=args.hop_length,
         n_mels=args.n_mels,
@@ -46,13 +43,14 @@ def process_sample(entry, args, config):
         S = librosa.power_to_db(S, ref=np.max)
         S = (S - S.mean()) / (S.std() + 1e-6)
 
-    mel = S.T
+    mel = S.T  # shape: (T, 80)
 
     return {
         "mel": mel.astype(np.float32),
         "phonemes": phonemes,
         "audio_path": audio_path,
-        "id": uid
+        "id": uid,
+        "num_frames": mel.shape[0]
     }
 
 def process_and_store(entry, args, config, out_dir):
@@ -62,7 +60,12 @@ def process_and_store(entry, args, config, out_dir):
 
     out_path = out_dir / f"{result['id']}.npz"
     np.savez_compressed(out_path, mel=result["mel"], phonemes=result["phonemes"], audio_path=result["audio_path"])
-    return result["id"]
+    return {
+        "id": result["id"],
+        "audio_path": result["audio_path"],
+        "phonemes": result["phonemes"],
+        "num_frames": result["num_frames"]
+    }
 
 def main(args):
     config = load_config(args.config)
@@ -73,18 +76,21 @@ def main(args):
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    index_lines = []
+    index_entries = []
 
     with ThreadPoolExecutor(max_workers=args.num_workers) as executor:
         futures = [executor.submit(process_and_store, e, args, config, out_dir) for e in entries]
         for future in tqdm(futures, total=len(futures), desc="Processing samples"):
             res = future.result()
             if res:
-                index_lines.append(res)
+                index_entries.append(res)
 
     if args.index_csv:
-        with open(args.index_csv, "w") as f:
-            f.write("id\n" + "\n".join(index_lines))
+        with open(args.index_csv, "w", encoding="utf-8") as f:
+            f.write("id,audio_path,phonemes,num_frames\n")
+            for entry in index_entries:
+                phonemes_str = json.dumps(entry["phonemes"], ensure_ascii=False)
+                f.write(f"{entry['id']},{entry['audio_path']},{phonemes_str},{entry['num_frames']}\n")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -100,3 +106,4 @@ if __name__ == "__main__":
     parser.add_argument("--num_workers", type=int, default=1)
     args = parser.parse_args()
     main(args)
+
