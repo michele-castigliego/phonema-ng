@@ -55,7 +55,13 @@ std::vector<float> parse_audio(const std::string &path, int target_sr) {
     SF_INFO sfinfo;
     SNDFILE *snd = sf_open(path.c_str(), SFM_READ, &sfinfo);
     if (!snd) {
-        throw std::runtime_error("Unable to open audio: " + path);
+        bool file_exists = fs::exists(path);
+        std::string msg = "Unable to open audio: " + path + " (" +
+                          std::string(sf_strerror(nullptr)) + ")";
+        if (!file_exists) {
+            msg += " [file not found]";
+        }
+        throw std::runtime_error(msg);
     }
 
     std::vector<float> data(sfinfo.frames * sfinfo.channels);
