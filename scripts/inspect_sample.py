@@ -5,26 +5,42 @@ import librosa.display
 import os
 import pandas as pd
 
-def plot_mel_with_phonemes(mel, phonemes, hop_length, sr, title=None, save_path=None):
-    fig, ax = plt.subplots(figsize=(14, 4))
-    librosa.display.specshow(mel.T, sr=sr, hop_length=hop_length,
-                              x_axis='time', y_axis='mel', ax=ax)
-    ax.set_title(title or "Mel-spectrogram + fonemi")
+def plot_mel_with_phonemes(mel, phonemes, save_path=None, title=None):
+    """
+    Visualizza un mel-spectrogramma con i fonemi allineati sul tempo.
 
-    n_frames = mel.shape[0]
-    duration = n_frames * hop_length / sr
+    Args:
+        mel (np.ndarray): Matrice (T, 80) del mel-spectrogramma.
+        phonemes (List[str]): Sequenza di fonemi da visualizzare.
+        save_path (str): Se fornito, salva la figura invece di mostrarla.
+        title (str): Titolo opzionale della figura.
+    """
+    fig, ax = plt.subplots(figsize=(12, 6))
 
-    positions = np.linspace(0, duration, num=len(phonemes), endpoint=False)
+    im = ax.imshow(mel.T, aspect="auto", origin="lower", interpolation="none")
 
-    for x, label in zip(positions, phonemes):
-        ax.text(x, mel.shape[1] + 2, label, rotation=90,
-                fontsize=9, verticalalignment='bottom', color='black')
+    ax.set_ylabel("Mel bands")
+    ax.set_xlabel("Time frames")
 
+    if title:
+        ax.set_title(title)
+
+    # Annotazioni fonemi (opzionale: equi-distribuiti)
+    T = mel.shape[0]
+    num_phonemes = len(phonemes)
+    step = T / num_phonemes
+
+    for i, phon in enumerate(phonemes):
+        center = int((i + 0.5) * step)
+        if center < T:
+            ax.text(center, mel.shape[1] + 2, phon, ha="center", va="bottom", fontsize=9, rotation=90, color="black")
+
+    fig.colorbar(im, ax=ax, orientation='vertical')
     plt.tight_layout()
 
     if save_path:
-        plt.savefig(save_path, dpi=150)
-        print(f"📷 Plot salvato in: {save_path}")
+        plt.savefig(save_path)
+        print(f"✅ Salvato: {save_path}")
         plt.close()
     else:
         plt.show()

@@ -1,7 +1,7 @@
-
-#Crea e attiva l’ambiente virtuale
+# Crea e attiva l’ambiente virtuale
 python3 -m venv phonema-env
 source phonema-env/bin/activate
+export PYTHONPATH=.
 
 # Installa pacchetti
 pip install -r pip-requirements.txt
@@ -28,7 +28,6 @@ python scripts/extract_mels.py \
 # Generazione di tutti gli spettrogrammi
 python scripts/extract_mels_all.py
 
-
 # Output
 output/
 ├── mel_segments/
@@ -41,7 +40,6 @@ output/
 ├── dev_index.csv
 └── test_index.csv
 
-
 # Ispezione
 python scripts/inspect_sample.py \
   --index_csv output/mel_segments/train_index.csv \
@@ -51,5 +49,33 @@ python scripts/inspect_sample.py \
   --index_csv output/mel_segments/train_index.csv \
   --id common_voice_it_20057445 \
   --save output/plots/20057445.png
+
+## Estrazione dei Mel-spectrogrammi
+
+Gli script `extract_mels.py` e `extract_mels_all.py` generano i mel-spectrogrammi segmentati per fonema a partire dai file `.jsonl` prodotti dalla fonemizzazione.
+
+### ⚙️ Parametri audio
+
+I parametri principali (`sr`, `n_fft`, `hop_length`, `n_mels`, `top_db`, ecc.) sono definiti nel file `config.yaml`.
+
+### 🔹 Estrazione per singolo file
+
+```bash
+python scripts/extract_mels.py \
+  --input_jsonl output/phonemized_train.jsonl \
+  --output_dir output/mel_segments/train \
+  --index_csv output/mel_segments/train_index.csv \
+  --preemphasis   # opzionale
+  # --no_norm     # per disabilitare la normalizzazione
+
+python scripts/extract_mels_all.py \
+  --phonemized_dir output/ \
+  --output_dir output/mel_segments/ \
+  --preemphasis   # opzionale
+  # --no_norm     # opzionale
+
+
+#Archivio
+tar --exclude='output' --exclude='phonema-env' --exclude='third_party' --exclude='.git' -czvf phonema_project.tar.gz .
 
 
