@@ -17,6 +17,11 @@ sudo apt install python3.11 python3.11-venv python3.11-dev
 
 # Output
 output/
+├── wav_trimmed
+│   ├── train
+│   ├── dev
+│   └── test
+│
 ├── mel_segments/
 │   ├── train/
 │   ├── dev/
