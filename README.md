@@ -72,12 +72,9 @@ output/
 # TEST Ispezione
 python scripts/inspect_sample.py \
   --index_csv output/mel_segments/train_index.csv \
-  --id common_voice_it_20057445
+  --id common_voice_it_20057443 \
+  --save output/plots/sample_20057443.png # optional
 
-python scripts/inspect_sample.py \
-  --index_csv output/mel_segments/train_index.csv \
-  --id common_voice_it_20057445 \
-  --save output/plots/20057445.png
 
 ## Estrazione dei Mel-spectrogrammi
 

@@ -2,21 +2,15 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import librosa.display
-import os
 import pandas as pd
+import yaml
+
+def load_config(config_path="config.yaml"):
+    with open(config_path, "r") as f:
+        return yaml.safe_load(f)
 
 def plot_mel_with_phonemes(mel, phonemes, save_path=None, title=None):
-    """
-    Visualizza un mel-spectrogramma con i fonemi allineati sul tempo.
-
-    Args:
-        mel (np.ndarray): Matrice (T, 80) del mel-spectrogramma.
-        phonemes (List[str]): Sequenza di fonemi da visualizzare.
-        save_path (str): Se fornito, salva la figura invece di mostrarla.
-        title (str): Titolo opzionale della figura.
-    """
     fig, ax = plt.subplots(figsize=(12, 6))
-
     im = ax.imshow(mel.T, aspect="auto", origin="lower", interpolation="none")
 
     ax.set_ylabel("Mel bands")
@@ -25,7 +19,6 @@ def plot_mel_with_phonemes(mel, phonemes, save_path=None, title=None):
     if title:
         ax.set_title(title)
 
-    # Annotazioni fonemi (opzionale: equi-distribuiti)
     T = mel.shape[0]
     num_phonemes = len(phonemes)
     step = T / num_phonemes
@@ -46,6 +39,8 @@ def plot_mel_with_phonemes(mel, phonemes, save_path=None, title=None):
         plt.show()
 
 def main(args):
+    config = load_config()
+
     df = pd.read_csv(args.index_csv)
     row = df[df['id'] == args.id]
     if row.empty:
@@ -64,8 +59,6 @@ def main(args):
     plot_mel_with_phonemes(
         mel,
         phonemes,
-        args.hop_length,
-        args.sr,
         title=f"ID: {args.id}",
         save_path=args.save
     )
@@ -74,8 +67,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Ispeziona mel-spectrogramma e fonemi")
     parser.add_argument("--index_csv", required=True)
     parser.add_argument("--id", required=True)
-    parser.add_argument("--sr", type=int, default=16000)
-    parser.add_argument("--hop_length", type=int, default=160)
     parser.add_argument("--save", type=str, default=None, help="Path per salvare PNG (opzionale)")
     args = parser.parse_args()
     main(args)
