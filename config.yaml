@@ -1,6 +1,7 @@
 # Percorsi principali
 dataset_dir: DataSet/cv-corpus-18.0-2024-06-14/it
 phonemized_dir: output/
+wav_output_dir: output/wav_trimmed/
 mel_output_dir: output/mel_segments/
 
 # Parametri audio / mel

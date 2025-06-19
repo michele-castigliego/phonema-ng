@@ -70,18 +70,21 @@ python scripts/phonemize_all.py \
   --output_dir output/ \
   --lang it
 
-# Generazione spettrogrammi, esempio singolo
-python scripts/extract_mels.py \
+# Step intermedio di conversione
+python scripts/convert_mp3_to_wav.py \
   --input_jsonl output/phonemized_train.jsonl \
-  --output_dir output/mel_segments/train \
-  --index_csv output/mel_segments/train_index.csv
+  --output_jsonl output/phonemized_train_wav.jsonl \
+  --output_wav_dir output/wav_trimmed/train \
+  --preemphasis \
+  --num_workers 8
 
-# Generazione di tutti gli spettrogrammi
-python scripts/extract_mels_all.py
+# Step intermedio di conversione train,dev,test
+python scripts/convert_mp3_to_wav_all.py \
+  --phonemized_dir output/ \
+  --output_dir output/ \
+  --preemphasis \
+  --num_workers 8
 
-
-# TEST Ispezione
-python scripts/inspect_sample.py   --index_csv output/mel_segments/train_index.csv   --id common_voice_it_20057443   --save output/plots/sample.png
 
 
 ## Estrazione dei Mel-spectrogrammi
@@ -96,17 +99,18 @@ I parametri principali (`sr`, `n_fft`, `hop_length`, `n_mels`, `top_db`, ecc.) s
 
 ```bash
 python scripts/extract_mels.py \
-  --input_jsonl output/phonemized_train.jsonl \
+  --input_jsonl output/phonemized_train_wav.jsonl \
   --output_dir output/mel_segments/train \
   --index_csv output/mel_segments/train_index.csv \
-  --preemphasis   # opzionale
-  # --no_norm     # per disabilitare la normalizzazione
+  --num_workers 8
 
 python scripts/extract_mels_all.py \
   --phonemized_dir output/ \
   --output_dir output/mel_segments/ \
-  --preemphasis   # opzionale
-  # --no_norm     # opzionale
+  --num_workers 8
+
+# TEST Ispezione
+python scripts/inspect_sample.py   --index_csv output/mel_segments/train_index.csv   --id common_voice_it_20057443   --save output/plots/sample.png
 
 
 #Lo script create_frame_targets.py crea una sequenza che indica quale suono è presente in ogni momento dell’audio, distinguendo tra parlato e silenzio.
@@ -140,7 +144,7 @@ Per compilarla utilizzare CMake:
 ```bash
 mkdir build
 cd build
-cmake ../../extract_mels/
+cmake ..
 make
 ```
 

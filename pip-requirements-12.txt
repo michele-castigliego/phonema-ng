@@ -6,3 +6,4 @@ pandas
 pyyaml
 matplotlib
 num2words
+resampy
