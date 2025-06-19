@@ -9,8 +9,14 @@
 #include <yaml-cpp/yaml.h>
 #include <nlohmann/json.hpp>
 #include "cnpy.h"
-#include <sndfile.h>
-#include <samplerate.h>
+
+#extern "C" {
+#include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
+#include <libswresample/swresample.h>
+#include <libavutil/opt.h>
+#include <libavutil/channel_layout.h>
+}
 
 namespace fs = std::filesystem;
 
@@ -27,63 +33,84 @@ struct Args {
     bool no_norm = false;
 };
 
-std::vector<float> resample(const std::vector<float> &input,
-                           int sr_orig, int target_sr) {
-    if (sr_orig == target_sr) return input;
-
-    double ratio = static_cast<double>(target_sr) / sr_orig;
-    long out_frames = static_cast<long>(std::ceil(input.size() * ratio)) + 1;
-    std::vector<float> output(out_frames);
-
-    SRC_DATA d{};
-    d.data_in = input.data();
-    d.input_frames = static_cast<long>(input.size());
-    d.data_out = output.data();
-    d.output_frames = out_frames;
-    d.end_of_input = 1;
-    d.src_ratio = ratio;
-
-    int err = src_simple(&d, SRC_SINC_FASTEST, 1);
-    if (err) {
-        throw std::runtime_error(src_strerror(err));
-    }
-    output.resize(d.output_frames_gen);
-    return output;
-}
 
 std::vector<float> parse_audio(const std::string &path, int target_sr) {
-    SF_INFO sfinfo;
-    SNDFILE *snd = sf_open(path.c_str(), SFM_READ, &sfinfo);
-    if (!snd) {
-        bool file_exists = fs::exists(path);
-        std::string msg = "Unable to open audio: " + path + " (" +
-                          std::string(sf_strerror(nullptr)) + ")";
-        if (!file_exists) {
-            msg += " [file not found]";
+    AVFormatContext *fmt_ctx = nullptr;
+    if (avformat_open_input(&fmt_ctx, path.c_str(), nullptr, nullptr) < 0) {
+        throw std::runtime_error("Unable to open audio: " + path);
+    }
+    if (avformat_find_stream_info(fmt_ctx, nullptr) < 0) {
+        avformat_close_input(&fmt_ctx);
+        throw std::runtime_error("Could not find stream info: " + path);
+    }
+
+    AVCodec *dec = nullptr;
+    int stream_index = av_find_best_stream(fmt_ctx, AVMEDIA_TYPE_AUDIO, -1, -1, &dec, 0);
+    if (stream_index < 0) {
+        avformat_close_input(&fmt_ctx);
+        throw std::runtime_error("No audio stream found in: " + path);
+    }
+
+    AVStream *stream = fmt_ctx->streams[stream_index];
+    AVCodecContext *dec_ctx = avcodec_alloc_context3(dec);
+    if (!dec_ctx) {
+        avformat_close_input(&fmt_ctx);
+        throw std::runtime_error("Could not allocate codec context");
+    }
+    if (avcodec_parameters_to_context(dec_ctx, stream->codecpar) < 0) {
+        avcodec_free_context(&dec_ctx);
+        avformat_close_input(&fmt_ctx);
+        throw std::runtime_error("Could not copy codec parameters");
+    }
+    if (avcodec_open2(dec_ctx, dec, nullptr) < 0) {
+        avcodec_free_context(&dec_ctx);
+        avformat_close_input(&fmt_ctx);
+        throw std::runtime_error("Could not open decoder");
+    }
+
+    int64_t in_layout = dec_ctx->channel_layout;
+    if (!in_layout) in_layout = av_get_default_channel_layout(dec_ctx->channels);
+    SwrContext *swr = swr_alloc_set_opts(nullptr,
+        AV_CH_LAYOUT_MONO, AV_SAMPLE_FMT_FLT, target_sr,
+        in_layout, dec_ctx->sample_fmt, dec_ctx->sample_rate,
+        0, nullptr);
+    if (!swr || swr_init(swr) < 0) {
+        if (swr) swr_free(&swr);
+        avcodec_free_context(&dec_ctx);
+        avformat_close_input(&fmt_ctx);
+        throw std::runtime_error("Could not initialize resampler");
+    }
+
+    AVPacket *pkt = av_packet_alloc();
+    AVFrame *frame = av_frame_alloc();
+    std::vector<float> data;
+
+    auto decode = [&](AVPacket *packet) {
+        if (avcodec_send_packet(dec_ctx, packet) < 0) return;
+        while (avcodec_receive_frame(dec_ctx, frame) >= 0) {
+            int out_samples = av_rescale_rnd(swr_get_delay(swr, dec_ctx->sample_rate) + frame->nb_samples,
+                                            target_sr, dec_ctx->sample_rate, AV_ROUND_UP);
+            std::vector<float> out_buf(out_samples);
+            uint8_t *out_ptr = reinterpret_cast<uint8_t*>(out_buf.data());
+            int ret = swr_convert(swr, &out_ptr, out_samples,
+                                  (const uint8_t**)frame->extended_data, frame->nb_samples);
+            if (ret < 0) continue;
+            out_buf.resize(ret);
+            data.insert(data.end(), out_buf.begin(), out_buf.end());
         }
-        throw std::runtime_error(msg);
-    }
+    };
 
-    std::vector<float> data(sfinfo.frames * sfinfo.channels);
-    sf_readf_float(snd, data.data(), sfinfo.frames);
-    sf_close(snd);
-
-    // if stereo -> mono
-    if (sfinfo.channels > 1) {
-        std::vector<float> mono(sfinfo.frames, 0.0f);
-        for (int i = 0; i < sfinfo.frames; ++i) {
-            float sum = 0.0f;
-            for (int c = 0; c < sfinfo.channels; ++c) {
-                sum += data[i * sfinfo.channels + c];
-            }
-            mono[i] = sum / sfinfo.channels;
-        }
-        data.swap(mono);
+    while (av_read_frame(fmt_ctx, pkt) >= 0) {
+        if (pkt->stream_index == stream_index) decode(pkt);
+        av_packet_unref(pkt);
     }
+    decode(nullptr); // flush
 
-    if (sfinfo.samplerate != target_sr) {
-        data = resample(data, sfinfo.samplerate, target_sr);
-    }
+    av_frame_free(&frame);
+    av_packet_free(&pkt);
+    swr_free(&swr);
+    avcodec_free_context(&dec_ctx);
+    avformat_close_input(&fmt_ctx);
 
     return data;
 }
