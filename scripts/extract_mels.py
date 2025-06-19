@@ -1,85 +1,99 @@
 import argparse
-import json
-import librosa
-import numpy as np
 import os
-import soundfile as sf
+import json
 from pathlib import Path
-import pandas as pd
-import scipy.signal
-import sys
+import numpy as np
+import librosa
+import soundfile as sf
+import yaml
 from tqdm import tqdm
-from phonemizer.load_config import load_config
 
-def apply_preemphasis(y, coeff=0.97):
-    return scipy.signal.lfilter([1, -coeff], [1], y)
+def load_config(path):
+    with open(path, "r") as f:
+        return yaml.safe_load(f)
 
-def normalize(mel):
-    mean = mel.mean()
-    std = mel.std()
-    return (mel - mean) / (std + 1e-6)
+def preemphasis(signal, coef=0.97):
+    return np.append(signal[0], signal[1:] - coef * signal[:-1])
 
-def extract_mel(audio_path, config, preemph=False, normalize_flag=True):
-    sr = config["sr"]
-    n_fft = config["n_fft"]
-    hop_length = config["hop_length"]
-    n_mels = config["n_mels"]
-    top_db = config.get("top_db", 30)
+def process_sample(entry, args, config):
+    audio_path = entry["audio_path"]
+    phonemes = entry["phonemes"]
+    uid = Path(audio_path).stem
 
-    y, orig_sr = sf.read(audio_path)
-    if y.ndim > 1:
-        y = y.mean(axis=1)
-    if orig_sr != sr:
-        y = librosa.resample(y=y, orig_sr=orig_sr, target_sr=sr)
-    y, _ = librosa.effects.trim(y, top_db=top_db)
-    if preemph:
-        y = apply_preemphasis(y)
-    mel = librosa.feature.melspectrogram(y=y, sr=sr, n_fft=n_fft,
-                                         hop_length=hop_length, n_mels=n_mels, power=2.0)
-    mel_db = librosa.power_to_db(mel, ref=np.max)
-    if normalize_flag:
-        mel_db = normalize(mel_db)
-    return mel_db.T  # (frames, mel)
+    try:
+        y, sr_orig = sf.read(audio_path)
+        if len(y.shape) > 1:
+            y = y.mean(axis=1)
+    except Exception as e:
+        print(f"[Errore] Impossibile leggere {audio_path}: {e}")
+        return None
+
+    if sr_orig != args.sr:
+        y = librosa.resample(y, orig_sr=sr_orig, target_sr=args.sr)
+
+    y = librosa.effects.trim(y, top_db=config.get("top_db", 30))[0]
+
+    if args.preemphasis:
+        y = preemphasis(y)
+
+    S = librosa.feature.melspectrogram(
+        y=y,
+        sr=args.sr,
+        n_fft=args.n_fft,
+        hop_length=args.hop_length,
+        n_mels=args.n_mels,
+        power=2.0,
+    )
+
+    if not args.no_norm:
+        S = librosa.power_to_db(S, ref=np.max)
+        S = (S - S.mean()) / (S.std() + 1e-6)
+
+    mel = S.T
+
+    return {
+        "mel": mel.astype(np.float32),
+        "phonemes": phonemes,
+        "audio_path": audio_path,
+        "id": uid
+    }
 
 def main(args):
-    config = load_config()
-    input_jsonl = Path(args.input_jsonl)
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    index_data = []
+    config = load_config(args.config)
 
-    with input_jsonl.open("r", encoding="utf-8") as f:
-        lines = f.readlines()
-        for line in tqdm(lines, desc=f"[{input_jsonl.stem.upper()}]", file=sys.stdout):
-            sample = json.loads(line)
-            mel = extract_mel(
-                audio_path=sample["audio_path"],
-                config=config,
-                preemph=args.preemphasis,
-                normalize_flag=not args.no_norm,
-            )
-            sample_id = Path(sample["audio_path"]).stem
-            out_path = output_dir / f"{sample_id}.npy"
-            np.save(out_path, mel)
-            index_data.append({
-                "id": sample_id,
-                "mel_path": str(out_path),
-                "n_frames": mel.shape[0],
-                "n_mels": mel.shape[1],
-                "phonemes": sample["phonemes"],
-            })
+    with open(args.input_jsonl, "r", encoding="utf-8") as f:
+        entries = [json.loads(line.strip()) for line in f if line.strip()]
 
-    df = pd.DataFrame(index_data)
-    df.to_csv(args.index_csv, index=False)
-    print(f"✅ Salvati {len(df)} spettrogrammi in {output_dir}")
+    out_dir = Path(args.output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    index_lines = []
+
+    for entry in tqdm(entries, desc="Processing samples"):
+        result = process_sample(entry, args, config)
+        if result is None:
+            continue
+
+        out_path = out_dir / f"{result['id']}.npz"
+        np.savez_compressed(out_path, mel=result["mel"], phonemes=result["phonemes"], audio_path=result["audio_path"])
+        index_lines.append(result["id"])
+
+    if args.index_csv:
+        with open(args.index_csv, "w") as f:
+            f.write("\n".join(index_lines))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_jsonl", type=str, required=True)
     parser.add_argument("--output_dir", type=str, required=True)
-    parser.add_argument("--index_csv", type=str, required=True)
-    parser.add_argument("--preemphasis", action="store_true", help="Applica pre-enfasi")
-    parser.add_argument("--no_norm", action="store_true", help="Disabilita normalizzazione")
+    parser.add_argument("--index_csv", type=str, default=None)
+    parser.add_argument("--config", type=str, default="config.yaml")
+    parser.add_argument("--sr", type=int, default=16000)
+    parser.add_argument("--n_fft", type=int, default=400)
+    parser.add_argument("--hop_length", type=int, default=160)
+    parser.add_argument("--n_mels", type=int, default=80)
+    parser.add_argument("--preemphasis", action="store_true")
+    parser.add_argument("--no_norm", action="store_true")
     args = parser.parse_args()
     main(args)
 

@@ -1,37 +1,46 @@
-import argparse
 import os
-import sys
-from pathlib import Path
+import argparse
 import subprocess
 
-def main(args):
-    splits = ["train", "dev", "test"]
-    for split in splits:
-        jsonl_path = Path(args.phonemized_dir) / f"phonemized_{split}.jsonl"
-        out_dir = Path(args.output_dir) / split
-        index_csv = Path(args.output_dir) / f"{split}_index.csv"
+def run_extract(split, args):
+    print(f"================= [{split.upper()}] =================")
+    jsonl = os.path.join(args.phonemized_dir, f"phonemized_{split}.jsonl")
+    output_dir = os.path.join(args.output_dir, split)
+    index_csv = os.path.join(args.output_dir, f"{split}_index.csv")
 
-        cmd = [
-            "python", "scripts/extract_mels.py",
-            "--input_jsonl", str(jsonl_path),
-            "--output_dir", str(out_dir),
-            "--index_csv", str(index_csv),
-        ]
-        if args.preemphasis:
-            cmd.append("--preemphasis")
-        if args.no_norm:
-            cmd.append("--no_norm")
+    cmd = [
+        "python", "scripts/extract_mels.py",
+        "--input_jsonl", jsonl,
+        "--output_dir", output_dir,
+        "--index_csv", index_csv,
+        "--sr", str(args.sr),
+        "--n_fft", str(args.n_fft),
+        "--hop_length", str(args.hop_length),
+        "--n_mels", str(args.n_mels),
+    ]
 
-        print(f"▶️ Estrazione {split}...")
-        subprocess.run(cmd, check=True, stdout=sys.stdout, stderr=sys.stderr)
-        #subprocess.run(cmd, check=True)
+    if args.preemphasis:
+        cmd.append("--preemphasis")
+    if args.no_norm:
+        cmd.append("--no_norm")
 
-if __name__ == "__main__":
+    subprocess.run(cmd, check=True)
+
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--phonemized_dir", type=str, required=True)
     parser.add_argument("--output_dir", type=str, required=True)
-    parser.add_argument("--preemphasis", action="store_true", help="Applica pre-enfasi")
-    parser.add_argument("--no_norm", action="store_true", help="Disabilita normalizzazione")
+    parser.add_argument("--sr", type=int, default=16000)
+    parser.add_argument("--n_fft", type=int, default=400)
+    parser.add_argument("--hop_length", type=int, default=160)
+    parser.add_argument("--n_mels", type=int, default=80)
+    parser.add_argument("--preemphasis", action="store_true")
+    parser.add_argument("--no_norm", action="store_true")
     args = parser.parse_args()
-    main(args)
+
+    for split in ["train", "dev", "test"]:
+        run_extract(split, args)
+
+if __name__ == "__main__":
+    main()
 
