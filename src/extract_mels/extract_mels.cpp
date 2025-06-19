@@ -10,6 +10,7 @@
 #include <nlohmann/json.hpp>
 #include "cnpy.h"
 #include <sndfile.h>
+#include <samplerate.h>
 
 namespace fs = std::filesystem;
 
@@ -25,6 +26,30 @@ struct Args {
     bool preemphasis = false;
     bool no_norm = false;
 };
+
+std::vector<float> resample(const std::vector<float> &input,
+                           int sr_orig, int target_sr) {
+    if (sr_orig == target_sr) return input;
+
+    double ratio = static_cast<double>(target_sr) / sr_orig;
+    long out_frames = static_cast<long>(std::ceil(input.size() * ratio)) + 1;
+    std::vector<float> output(out_frames);
+
+    SRC_DATA d{};
+    d.data_in = input.data();
+    d.input_frames = static_cast<long>(input.size());
+    d.data_out = output.data();
+    d.output_frames = out_frames;
+    d.end_of_input = 1;
+    d.src_ratio = ratio;
+
+    int err = src_simple(&d, SRC_SINC_FASTEST, 1);
+    if (err) {
+        throw std::runtime_error(src_strerror(err));
+    }
+    output.resize(d.output_frames_gen);
+    return output;
+}
 
 std::vector<float> parse_audio(const std::string &path, int target_sr) {
     SF_INFO sfinfo;
@@ -50,8 +75,9 @@ std::vector<float> parse_audio(const std::string &path, int target_sr) {
         data.swap(mono);
     }
 
-    // resampling omitted for brevity (assume sr == target_sr)
-    (void)target_sr;
+    if (sfinfo.samplerate != target_sr) {
+        data = resample(data, sfinfo.samplerate, target_sr);
+    }
 
     return data;
 }
@@ -64,6 +90,20 @@ std::vector<float> preemphasis(const std::vector<float> &signal, float coef) {
         out[i] = signal[i] - coef * signal[i - 1];
     }
     return out;
+}
+
+std::vector<float> trim_silence(const std::vector<float> &signal, float top_db) {
+    if (signal.empty()) return {};
+    float max_amp = 0.0f;
+    for (float v : signal) max_amp = std::max(max_amp, std::abs(v));
+    if (max_amp == 0.0f) return signal;
+
+    float thresh = max_amp * std::pow(10.0f, -top_db / 20.0f);
+    size_t start = 0;
+    while (start < signal.size() && std::abs(signal[start]) < thresh) ++start;
+    size_t end = signal.size();
+    while (end > start && std::abs(signal[end - 1]) < thresh) --end;
+    return std::vector<float>(signal.begin() + start, signal.begin() + end);
 }
 
 // naive DFT for demonstration
@@ -171,7 +211,6 @@ int main(int argc, char** argv) {
         Args args = parse_args(argc, argv);
         YAML::Node config = YAML::LoadFile(args.config);
         int top_db = config["top_db"].as<int>(30);
-        (void)top_db; // trimming not implemented
 
         std::ifstream fin(args.input_jsonl);
         if (!fin.is_open()) throw std::runtime_error("Cannot open input jsonl");
@@ -187,6 +226,7 @@ int main(int argc, char** argv) {
             std::string uid = fs::path(audio_path).stem().string();
 
             auto y = parse_audio(audio_path, args.sr);
+            y = trim_silence(y, static_cast<float>(top_db));
             if (args.preemphasis) {
                 y = preemphasis(y, 0.97f);
             }
