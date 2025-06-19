@@ -61,8 +61,10 @@ python scripts/extract_mels_all.py
 output/
 ├── mel_segments/
 │   ├── train/
-│   │   ├── common_voice_it_XXXX.npz
-│   │   └── ...
+│   ├── dev/
+│   └── test/
+├── frame_targets/
+│   ├── train/
 │   ├── dev/
 │   └── test/
 ├── train_index.csv
@@ -70,10 +72,7 @@ output/
 └── test_index.csv
 
 # TEST Ispezione
-python scripts/inspect_sample.py \
-  --index_csv output/mel_segments/train_index.csv \
-  --id common_voice_it_20057443 \
-  --save output/plots/sample_20057443.png # optional
+python scripts/inspect_sample.py   --index_csv output/mel_segments/train_index.csv   --id common_voice_it_20057443   --save output/plots/sample.png
 
 
 ## Estrazione dei Mel-spectrogrammi
@@ -99,6 +98,16 @@ python scripts/extract_mels_all.py \
   --output_dir output/mel_segments/ \
   --preemphasis   # opzionale
   # --no_norm     # opzionale
+
+
+#Lo script create_frame_targets.py crea una sequenza che indica quale suono è presente in ogni momento dell’audio, distinguendo tra parlato e silenzio.
+python scripts/create_frame_targets.py \
+  --index_csv output/mel_segments/train_index.csv \
+  --input_dir output/mel_segments/train \
+  --output_dir output/frame_targets/train \
+  --config config.yaml
+
+python scripts/create_frame_targets_all.py
 
 
 #Archivio
