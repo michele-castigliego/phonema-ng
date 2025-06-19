@@ -1,8 +1,9 @@
-# pip requirements.txt
-py-espeak-ng
+# Compatibile con Python ≤ 3.11
+numpy<1.24
+librosa<0.10
 pandas
 num2words
-librosa
 matplotlib
 tqdm
 pyyaml
+soundfile

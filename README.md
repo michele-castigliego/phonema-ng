@@ -1,7 +1,13 @@
 # Crea e attiva l’ambiente virtuale
-python3 -m venv phonema-env
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt update
+sudo apt install python3.11 python3.11-venv python3.11-dev
+
+python3.11 -m venv phonema-env
 source phonema-env/bin/activate
 export PYTHONPATH=.
+
+pip install --upgrade pip
 
 # Installa pacchetti
 pip install -r pip-requirements.txt
@@ -14,10 +20,10 @@ make
 sudo make install
 
 # Generazione trascrizione fonetica, esempio singolo
-PYTHONPATH=. python scripts/phonemize.py --tsv DataSet/cv-corpus-18.0-2024-06-14/it/train.tsv --out output/phonemized_train.jsonl
+python scripts/phonemize.py --tsv DataSet/cv-corpus-18.0-2024-06-14/it/train.tsv --out output/phonemized_train.jsonl
 
 # Generazione trascrizione fonetica per training, validation, test
-PYTHONPATH=. python scripts/phonemize_all.py
+python scripts/phonemize_all.py
 
 # Generazione spettrogrammi, esempio singolo
 python scripts/extract_mels.py \
