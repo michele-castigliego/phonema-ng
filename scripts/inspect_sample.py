@@ -1,9 +1,9 @@
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
-import librosa.display
 import pandas as pd
 import yaml
+import os
 
 def load_config(config_path="config.yaml"):
     with open(config_path, "r") as f:
@@ -32,6 +32,7 @@ def plot_mel_with_phonemes(mel, phonemes, save_path=None, title=None):
     plt.tight_layout()
 
     if save_path:
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
         plt.savefig(save_path)
         print(f"✅ Salvato: {save_path}")
         plt.close()
@@ -48,9 +49,10 @@ def main(args):
         return
 
     mel_path = row.iloc[0]['mel_path']
-    data = np.load(mel_path, allow_pickle=True)
-    mel = data['mel']
-    phonemes = data['phonemes'].tolist()
+    phonemes_str = row.iloc[0]['phonemes']
+    phonemes = eval(phonemes_str)
+
+    mel = np.load(mel_path)
 
     print(f"🔹 ID: {args.id}")
     print(f"🔸 Mel shape: {mel.shape}")
@@ -64,7 +66,7 @@ def main(args):
     )
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Ispeziona mel-spectrogramma e fonemi")
+    parser = argparse.ArgumentParser(description="Ispeziona mel-spectrogramma (da .npy) e fonemi (da CSV)")
     parser.add_argument("--index_csv", required=True)
     parser.add_argument("--id", required=True)
     parser.add_argument("--save", type=str, default=None, help="Path per salvare PNG (opzionale)")
