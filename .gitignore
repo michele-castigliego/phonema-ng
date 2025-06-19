@@ -1,5 +1,6 @@
 # Ambiente virtuale
-phonema-env/
+phonema-env-py11/
+phonema-env-py12/
 
 # Dataset (symlink o directory reale)
 DataSet

@@ -1,4 +1,3 @@
-# Compatibile con Python ≤ 3.11
 numpy<1.24
 librosa<0.10
 pandas
@@ -7,3 +6,4 @@ matplotlib
 tqdm
 pyyaml
 soundfile
+

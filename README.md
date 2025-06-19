@@ -3,11 +3,22 @@ sudo add-apt-repository ppa:deadsnakes/ppa
 sudo apt update
 sudo apt install python3.11 python3.11-venv python3.11-dev
 
-python3.11 -m venv phonema-env
-source phonema-env/bin/activate
+python3.11 -m venv phonema-env-py11
+source phonema-env-py11/bin/activate
 export PYTHONPATH=.
-
 pip install --upgrade pip
+# Installa pacchetti
+pip install -r pip-requirements-11.txt
+
+
+python3.12 -m venv phonema-env-py12
+source phonema-env-py12/bin/activate
+export PYTHONPATH=.
+pip install --upgrade pip
+# Installa pacchetti
+pip install -r pip-requirements-12.txt
+
+
 
 # Installa pacchetti
 pip install -r pip-requirements.txt
