@@ -7,6 +7,7 @@ import librosa
 import soundfile as sf
 import yaml
 from tqdm import tqdm
+import pandas as pd
 
 def load_config(path):
     with open(path, "r") as f:
@@ -28,16 +29,24 @@ def process_sample(entry, args, config):
         print(f"[Errore] Impossibile leggere {audio_path}: {e}")
         return None
 
+    duration_raw = len(y) / sr_orig
+
     if sr_orig != args.sr:
         y = librosa.resample(y, orig_sr=sr_orig, target_sr=args.sr)
 
-    y = librosa.effects.trim(y, top_db=config.get("top_db", 30))[0]
+    n_samples_before = len(y)
+    y_trimmed, index = librosa.effects.trim(y, top_db=config.get("top_db", 30))
+    n_samples_after = len(y_trimmed)
+
+    trimmed = n_samples_before != n_samples_after
+    samples_removed = n_samples_before - n_samples_after
+    duration_trimmed = n_samples_after / args.sr
 
     if args.preemphasis:
-        y = preemphasis(y)
+        y_trimmed = preemphasis(y_trimmed)
 
     S = librosa.feature.melspectrogram(
-        y=y,
+        y=y_trimmed,
         sr=args.sr,
         n_fft=args.n_fft,
         hop_length=args.hop_length,
@@ -55,7 +64,13 @@ def process_sample(entry, args, config):
         "mel": mel.astype(np.float32),
         "phonemes": phonemes,
         "audio_path": audio_path,
-        "id": uid
+        "id": uid,
+        "n_frames": mel.shape[0],
+        "n_phonemes": len(phonemes),
+        "duration_sec_raw": round(duration_raw, 3),
+        "duration_sec_trimmed": round(duration_trimmed, 3),
+        "samples_removed": samples_removed,
+        "trimmed": trimmed
     }
 
 def main(args):
@@ -67,7 +82,7 @@ def main(args):
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    index_lines = []
+    records = []
 
     for entry in tqdm(entries, desc="Processing samples"):
         result = process_sample(entry, args, config)
@@ -76,11 +91,22 @@ def main(args):
 
         out_path = out_dir / f"{result['id']}.npz"
         np.savez_compressed(out_path, mel=result["mel"], phonemes=result["phonemes"], audio_path=result["audio_path"])
-        index_lines.append(result["id"])
+
+        records.append({
+            "id": result["id"],
+            "audio_path": result["audio_path"],
+            "mel_path": str(out_path),
+            "n_frames": result["n_frames"],
+            "n_phonemes": result["n_phonemes"],
+            "duration_sec_raw": result["duration_sec_raw"],
+            "duration_sec_trimmed": result["duration_sec_trimmed"],
+            "samples_removed": result["samples_removed"],
+            "trimmed": result["trimmed"]
+        })
 
     if args.index_csv:
-        with open(args.index_csv, "w") as f:
-            f.write("\n".join(index_lines))
+        df = pd.DataFrame(records)
+        df.to_csv(args.index_csv, index=False)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
