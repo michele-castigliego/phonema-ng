@@ -7,65 +7,52 @@ import librosa
 import soundfile as sf
 import yaml
 from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor
+from joblib import Parallel, delayed
 
 def load_config(path):
     with open(path, "r") as f:
         return yaml.safe_load(f)
 
-def process_sample(entry, args, config):
+def process_and_store(entry, args, config, out_dir):
     audio_path = entry["audio_path"]
     phonemes = entry["phonemes"]
     uid = Path(audio_path).stem
+    out_path = out_dir / f"{uid}.npz"
 
     try:
         y, sr = sf.read(audio_path)
         if len(y.shape) > 1:
             y = y.mean(axis=1)
+
+        if sr != args.sr:
+            return None
+
+        S = librosa.feature.melspectrogram(
+            y=y,
+            sr=sr,
+            n_fft=args.n_fft,
+            hop_length=args.hop_length,
+            n_mels=args.n_mels,
+            power=2.0,
+        )
+
+        if not args.no_norm:
+            S = librosa.power_to_db(S, ref=np.max)
+            S = (S - S.mean()) / (S.std() + 1e-6)
+
+        mel = S.T.astype(np.float32)
+
+        np.savez_compressed(out_path, mel=mel, phonemes=phonemes, audio_path=audio_path)
+
+        return {
+            "id": uid,
+            "audio_path": audio_path,
+            "phonemes": phonemes,
+            "num_frames": mel.shape[0]
+        }
     except Exception as e:
-        print(f"[Errore] Impossibile leggere {audio_path}: {e}")
+        print(f"[Errore] {audio_path}: {e}")
         return None
-
-    if sr != args.sr:
-        print(f"[Warning] Sampling rate mismatch in {audio_path}, expected {args.sr}, got {sr}")
-        return None
-
-    S = librosa.feature.melspectrogram(
-        y=y,
-        sr=sr,
-        n_fft=args.n_fft,
-        hop_length=args.hop_length,
-        n_mels=args.n_mels,
-        power=2.0,
-    )
-
-    if not args.no_norm:
-        S = librosa.power_to_db(S, ref=np.max)
-        S = (S - S.mean()) / (S.std() + 1e-6)
-
-    mel = S.T  # shape: (T, 80)
-
-    return {
-        "mel": mel.astype(np.float32),
-        "phonemes": phonemes,
-        "audio_path": audio_path,
-        "id": uid,
-        "num_frames": mel.shape[0]
-    }
-
-def process_and_store(entry, args, config, out_dir):
-    result = process_sample(entry, args, config)
-    if result is None:
-        return None
-
-    out_path = out_dir / f"{result['id']}.npz"
-    np.savez_compressed(out_path, mel=result["mel"], phonemes=result["phonemes"], audio_path=result["audio_path"])
-    return {
-        "id": result["id"],
-        "audio_path": result["audio_path"],
-        "phonemes": result["phonemes"],
-        "num_frames": result["num_frames"]
-    }
 
 def main(args):
     config = load_config(args.config)
@@ -76,19 +63,16 @@ def main(args):
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    index_entries = []
+    results = Parallel(n_jobs=args.num_workers)(
+        delayed(process_and_store)(entry, args, config, out_dir) for entry in tqdm(entries, desc="Processing")
+    )
 
-    with ThreadPoolExecutor(max_workers=args.num_workers) as executor:
-        futures = [executor.submit(process_and_store, e, args, config, out_dir) for e in entries]
-        for future in tqdm(futures, total=len(futures), desc="Processing samples"):
-            res = future.result()
-            if res:
-                index_entries.append(res)
+    results = [r for r in results if r]
 
     if args.index_csv:
         with open(args.index_csv, "w", encoding="utf-8") as f:
             f.write("id,audio_path,phonemes,num_frames\n")
-            for entry in index_entries:
+            for entry in results:
                 phonemes_str = json.dumps(entry["phonemes"], ensure_ascii=False)
                 f.write(f"{entry['id']},{entry['audio_path']},{phonemes_str},{entry['num_frames']}\n")
 
@@ -106,4 +90,3 @@ if __name__ == "__main__":
     parser.add_argument("--num_workers", type=int, default=1)
     args = parser.parse_args()
     main(args)
-
