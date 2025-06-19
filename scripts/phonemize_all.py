@@ -1,31 +1,31 @@
 import os
+import argparse
 import subprocess
 
-def run_phonemizer(tsv_path, output_path):
-    print(f"\n📥 Fonemizzazione: {tsv_path}")
+def run_phonemize(split, args):
+    print(f"================= [{split.upper()}] =================")
+    tsv = os.path.join(args.dataset_dir, f"{split}.tsv")
+    out_path = os.path.join(args.output_dir, f"phonemized_{split}.jsonl")
+
     cmd = [
         "python", "scripts/phonemize.py",
-        "--tsv", tsv_path,
-        "--out", output_path
+        "--tsv", tsv,
+        "--out", out_path,
+        "--audio_dir", os.path.join(args.dataset_dir, "clips"),
+        "--lang", args.lang
     ]
+
     subprocess.run(cmd, check=True)
 
 def main():
-    base_dir = "DataSet/cv-corpus-18.0-2024-06-14/it"
-    output_dir = "output"
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dataset_dir", type=str, required=True)
+    parser.add_argument("--output_dir", type=str, required=True)
+    parser.add_argument("--lang", type=str, default="it")
+    args = parser.parse_args()
 
-    pairs = [
-        ("train.tsv", "phonemized_train.jsonl"),
-        ("dev.tsv", "phonemized_dev.jsonl"),
-        ("test.tsv", "phonemized_test.jsonl"),
-    ]
-
-    for tsv_file, jsonl_file in pairs:
-        tsv_path = os.path.join(base_dir, tsv_file)
-        out_path = os.path.join(output_dir, jsonl_file)
-        run_phonemizer(tsv_path, out_path)
-
-    print("\n✅ Fonemizzazione completata per tutti i file.")
+    for split in ["train", "dev", "test"]:
+        run_phonemize(split, args)
 
 if __name__ == "__main__":
     main()

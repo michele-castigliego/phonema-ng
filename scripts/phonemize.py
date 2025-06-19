@@ -1,55 +1,51 @@
-import os
-import re
-import json
+# Aggiornamento di scripts/phonemize.py per supporto multilingua
 import argparse
-import pandas as pd
-from num2words import num2words
+import json
+from pathlib import Path
 from phonemizer.libg2p import g2p_with_separator
+from phonemizer.normalize import normalize_text
+from tqdm import tqdm
 
-def normalize_text(text):
-    text = text.lower()
-    text = re.sub(r'\d+', lambda m: num2words(int(m.group()), lang='it'), text)
-    text = re.sub(r"[^\w\sàèéìòù]", "", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
+def phonemize_line(sentence, lang):
+    norm = normalize_text(sentence)
+    phonemes_str = g2p_with_separator(norm, sep="|", lang=lang)
+    phonemes = phonemes_str.split("|")
+    phonemes = [f"<LANG:{lang}>"] + phonemes  # Inserisce token linguistico
+    return norm, phonemes_str, phonemes
 
-def phonemize(tsv_path, output_path):
-    if not os.path.exists(tsv_path):
-        raise FileNotFoundError(f"File non trovato: {tsv_path}")
+def main(args):
+    out_path = Path(args.out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    df = pd.read_csv(tsv_path, sep="\t")
-    clips_dir = os.path.join(os.path.dirname(tsv_path), "clips")
+    with open(args.tsv, "r", encoding="utf-8") as f:
+        lines = [line.strip().split("\t") for line in f if line.strip()]
+        header = lines[0]
+        rows = lines[1:]
 
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    with open(output_path, "w", encoding="utf-8") as fout:
-        for i, row in df.iterrows():
-            original = row["sentence"]
-            normalized = normalize_text(original)
+    idx_sentence = header.index("sentence")
+    idx_path = header.index("path")
 
-            ipa_string = g2p_with_separator(normalized, sep="|")
-            phoneme_list = ipa_string.split("|") if ipa_string else []
-
-            audio_path = os.path.join(clips_dir, row["path"])
-
+    with open(out_path, "w", encoding="utf-8") as fout:
+        for row in tqdm(rows, desc="Phonemizing"):
+            sentence = row[idx_sentence]
+            rel_path = row[idx_path]
+            audio_path = str(Path(args.audio_dir) / rel_path)
+            normalized, phonemes_str, phonemes = phonemize_line(sentence, args.lang)
             fout.write(json.dumps({
-                "sentence": original,
+                "sentence": sentence,
                 "normalized": normalized,
+                "lang": args.lang,
                 "audio_path": audio_path,
-                "phonemes_str": ipa_string,
-                "phonemes": phoneme_list
+                "phonemes_str": phonemes_str,
+                "phonemes": phonemes,
             }, ensure_ascii=False) + "\n")
 
-            if (i + 1) % 100 == 0:
-                print(f"Processate {i+1} frasi")
-
-    print(f"\n✅ Fonemizzazione completata. File salvato: {output_path}")
-
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Fonemizza le frasi da un file TSV di Common Voice")
-    parser.add_argument("--tsv", required=True, help="Percorso al file .tsv da elaborare")
-    parser.add_argument("--out", required=True, help="Percorso al file di output .jsonl")
-
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--tsv", type=str, required=True)
+    parser.add_argument("--out", type=str, required=True)
+    parser.add_argument("--audio_dir", type=str, default="DataSet/cv-corpus-18.0-2024-06-14/it/clips")
+    parser.add_argument("--lang", type=str, default="it")
     args = parser.parse_args()
-
-    phonemize(args.tsv, args.out)
+    main(args)
 

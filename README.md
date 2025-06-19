@@ -43,10 +43,17 @@ make
 sudo make install
 
 # Generazione trascrizione fonetica, esempio singolo
-python scripts/phonemize.py --tsv DataSet/cv-corpus-18.0-2024-06-14/it/train.tsv --out output/phonemized_train.jsonl
+python phonemize_multilang.py \
+  --tsv DataSet/cv-corpus-18.0-2024-06-14/it/train.tsv \
+  --out output/phonemized_train.jsonl \
+  --audio_dir DataSet/cv-corpus-18.0-2024-06-14/it/clips \
+  --lang it
 
 # Generazione trascrizione fonetica per training, validation, test
-python scripts/phonemize_all.py
+python scripts/phonemize_all.py \
+  --dataset_dir DataSet/cv-corpus-18.0-2024-06-14/it \
+  --output_dir output/ \
+  --lang it
 
 # Generazione spettrogrammi, esempio singolo
 python scripts/extract_mels.py \
