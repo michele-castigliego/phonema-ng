@@ -33,3 +33,4 @@ __pycache__/
 
 # C++ build directory
 build/
+src/

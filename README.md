@@ -125,14 +125,22 @@ tar --exclude='output' --exclude='phonema-env' --exclude='third_party' --exclude
 
 
 ## Estrarre i Mel-spectrogrammi con C++
-
 Una versione sperimentale in C++ dello script `extract_mels.py` si trova in `src/extract_mels/`.
+cd src
+git clone https://github.com/jbeder/yaml-cpp.git
+cd yaml-cpp
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release -DYAML_BUILD_SHARED_LIBS=ON
+make -j$(nproc)
+sudo make install
+
+
 Per compilarla utilizzare CMake:
 
 ```bash
 mkdir build
 cd build
-cmake ../src/extract_mels
+cmake ../../extract_mels/
 make
 ```
 
