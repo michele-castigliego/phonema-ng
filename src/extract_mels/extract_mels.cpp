@@ -10,13 +10,17 @@
 #include <nlohmann/json.hpp>
 #include "cnpy.h"
 
-#extern "C" {
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libswresample/swresample.h>
 #include <libavutil/opt.h>
 #include <libavutil/channel_layout.h>
+#ifdef __cplusplus
 }
+#endif
 
 namespace fs = std::filesystem;
 
@@ -44,7 +48,7 @@ std::vector<float> parse_audio(const std::string &path, int target_sr) {
         throw std::runtime_error("Could not find stream info: " + path);
     }
 
-    AVCodec *dec = nullptr;
+    const AVCodec *dec = nullptr;
     int stream_index = av_find_best_stream(fmt_ctx, AVMEDIA_TYPE_AUDIO, -1, -1, &dec, 0);
     if (stream_index < 0) {
         avformat_close_input(&fmt_ctx);
