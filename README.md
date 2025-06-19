@@ -123,3 +123,18 @@ python scripts/create_frame_targets_all.py
 tar --exclude='output' --exclude='phonema-env' --exclude='third_party' --exclude='.git' -czvf phonema_project.tar.gz .
 
 
+
+## Estrarre i Mel-spectrogrammi con C++
+
+Una versione sperimentale in C++ dello script `extract_mels.py` si trova in `src/extract_mels/`.
+Per compilarla utilizzare CMake:
+
+```bash
+mkdir build
+cd build
+cmake ../src/extract_mels
+make
+```
+
+L'eseguibile risultante `extract_mels` accetta gli stessi parametri
+principali dello script Python.
