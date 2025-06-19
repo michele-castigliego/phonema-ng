@@ -1,51 +1,41 @@
-# Aggiornamento di scripts/phonemize.py per supporto multilingua
 import argparse
 import json
-from pathlib import Path
-from phonemizer.libg2p import g2p_with_separator
-from phonemizer.normalize import normalize_text
+import os
+import csv
 from tqdm import tqdm
 
-def phonemize_line(sentence, lang):
-    norm = normalize_text(sentence)
-    phonemes_str = g2p_with_separator(norm, sep="|", lang=lang)
-    phonemes = phonemes_str.split("|")
-    phonemes = [f"<LANG:{lang}>"] + phonemes  # Inserisce token linguistico
-    return norm, phonemes_str, phonemes
+from phonemizer.normalize import normalize_text
+from phonemizer.libg2p import g2p_with_separator, check_language_supported
 
-def main(args):
-    out_path = Path(args.out)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
+parser = argparse.ArgumentParser()
+parser.add_argument("--tsv", type=str, required=True)
+parser.add_argument("--out", type=str, required=True)
+parser.add_argument("--audio_dir", type=str, required=True)
+parser.add_argument("--lang", type=str, default="it")
+args = parser.parse_args()
 
-    with open(args.tsv, "r", encoding="utf-8") as f:
-        lines = [line.strip().split("\t") for line in f if line.strip()]
-        header = lines[0]
-        rows = lines[1:]
+if not check_language_supported(args.lang):
+    print(f"Errore: la lingua '{args.lang}' non è supportata da espeak-ng.")
+    exit(1)
 
-    idx_sentence = header.index("sentence")
-    idx_path = header.index("path")
+with open(args.tsv, "r", encoding="utf-8") as f_in:
+    reader = list(csv.DictReader(f_in, delimiter="\t"))
 
-    with open(out_path, "w", encoding="utf-8") as fout:
-        for row in tqdm(rows, desc="Phonemizing"):
-            sentence = row[idx_sentence]
-            rel_path = row[idx_path]
-            audio_path = str(Path(args.audio_dir) / rel_path)
-            normalized, phonemes_str, phonemes = phonemize_line(sentence, args.lang)
-            fout.write(json.dumps({
-                "sentence": sentence,
-                "normalized": normalized,
-                "lang": args.lang,
-                "audio_path": audio_path,
-                "phonemes_str": phonemes_str,
-                "phonemes": phonemes,
-            }, ensure_ascii=False) + "\n")
+with open(args.out, "w", encoding="utf-8") as f_out:
+    for row in tqdm(reader, desc="Phonemizing", unit="sent"):
+        sentence = row["sentence"]
+        path = row["path"]
+        normalized = normalize_text(sentence)
+        phonemes_str = g2p_with_separator(normalized, sep="|", lang=args.lang)
+        phonemes = [f"<LANG:{args.lang}>"] + phonemes_str.split("|")
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--tsv", type=str, required=True)
-    parser.add_argument("--out", type=str, required=True)
-    parser.add_argument("--audio_dir", type=str, default="DataSet/cv-corpus-18.0-2024-06-14/it/clips")
-    parser.add_argument("--lang", type=str, default="it")
-    args = parser.parse_args()
-    main(args)
+        json_line = {
+            "sentence": sentence,
+            "normalized": normalized,
+            "lang": args.lang,
+            "audio_path": os.path.join(args.audio_dir, path),
+            "phonemes_str": phonemes_str,
+            "phonemes": phonemes
+        }
+        f_out.write(json.dumps(json_line, ensure_ascii=False) + "\n")
 

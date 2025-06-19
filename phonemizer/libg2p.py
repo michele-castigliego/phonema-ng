@@ -1,4 +1,5 @@
 import ctypes
+import subprocess
 
 lib = ctypes.CDLL("/usr/local/lib/libespeak-ng.so")
 
@@ -18,4 +19,11 @@ def g2p_with_separator(text: str, sep: str = "|", lang: str = "it") -> str:
     lang_bytes = lang.encode("utf-8")
     result = lib.espeak_G2P_WithSeparator(text_bytes, sep_bytes, lang_bytes)
     return result.decode("utf-8")
+
+def check_language_supported(lang: str) -> bool:
+    try:
+        result = subprocess.run(["espeak-ng", "--voices=" + lang], capture_output=True, text=True)
+        return any(lang in line for line in result.stdout.splitlines())
+    except Exception:
+        return False
 
