@@ -15,6 +15,21 @@ sudo apt install python3.11 python3.11-venv python3.11-dev
 | tests/test_g2p.py            | phonema-env-py12       | 3.12    |
 +-------------------------------+------------------------+---------+
 
+# Output
+output/
+├── mel_segments/
+│   ├── train/
+│   ├── dev/
+│   └── test/
+├── frame_targets/
+│   ├── train/
+│   ├── dev/
+│   └── test/
+├── train_index.csv
+├── dev_index.csv
+└── test_index.csv
+
+
 python3.11 -m venv phonema-env-py11
 source phonema-env-py11/bin/activate
 export PYTHONPATH=.
@@ -64,19 +79,6 @@ python scripts/extract_mels.py \
 # Generazione di tutti gli spettrogrammi
 python scripts/extract_mels_all.py
 
-# Output
-output/
-├── mel_segments/
-│   ├── train/
-│   ├── dev/
-│   └── test/
-├── frame_targets/
-│   ├── train/
-│   ├── dev/
-│   └── test/
-├── train_index.csv
-├── dev_index.csv
-└── test_index.csv
 
 # TEST Ispezione
 python scripts/inspect_sample.py   --index_csv output/mel_segments/train_index.csv   --id common_voice_it_20057443   --save output/plots/sample.png
