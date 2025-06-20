@@ -7,6 +7,8 @@ wav_output_dir: output/wav_trimmed/
 mel_output_dir: output/mel_segments/
 frame_targets_dir: output/frame_targets/
 model_output_dir: output/models/
+phoneme_map_path: output/phoneme_to_index.json
+
 
 # =============================
 # Parametri audio / mel

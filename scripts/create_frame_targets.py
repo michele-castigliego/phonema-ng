@@ -1,3 +1,5 @@
+from utils.config import load_config
+from utils.phoneme_map import update_phoneme_mapping
 import argparse
 import os
 import json
@@ -56,6 +58,8 @@ def create_targets(sample, phoneme_to_index, total_frames):
     return np.array(targets[:total_frames], dtype=np.int16)
 
 def main():
+    config = load_config("config.yaml")
+    MAX_FRAMES = config.get("max_frames", 1000)
     parser = argparse.ArgumentParser()
     parser.add_argument("--input_jsonl", required=True)
     parser.add_argument("--mel_dir", required=True)
@@ -82,4 +86,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
