@@ -1,63 +1,71 @@
 import tensorflow as tf
-from tensorflow.keras import layers, models
-
-def conformer_block(inputs, d_model, num_heads, ff_dim, dropout):
-    # Feed-forward module
-    x = layers.LayerNormalization(epsilon=1e-6)(inputs)
-    x_ff = layers.Dense(ff_dim, activation="relu")(x)
-    x_ff = layers.Dropout(dropout)(x_ff)
-    x_ff = layers.Dense(d_model)(x_ff)
-    x = layers.Add()([inputs, x_ff])
-
-    # Multi-head self-attention
-    x = layers.LayerNormalization(epsilon=1e-6)(x)
-    attn = layers.MultiHeadAttention(num_heads=num_heads, key_dim=d_model)(x, x)
-    attn = layers.Dropout(dropout)(attn)
-    x = layers.Add()([x, attn])
-
-    # Convolution module
-    x = layers.LayerNormalization(epsilon=1e-6)(x)
-    conv = layers.Conv1D(filters=d_model, kernel_size=31, padding="same", activation="relu")(x)
-    conv = layers.BatchNormalization()(conv)
-    conv = layers.Dropout(dropout)(conv)
-    x = layers.Add()([x, conv])
-
-    return x
+from tensorflow import keras
+from tensorflow.keras import layers
 
 def build_phoneme_segmentation_model(
-    num_phonemes,
-    input_n_mels=80,
+    n_mels=80,
+    n_classes=128,
     d_model=256,
     num_heads=4,
     ff_dim=512,
-    num_blocks=4,
-    dropout=0.1
+    num_layers=4,
+    dropout=0.1,
+    l1=0.0,
+    l2=0.0
 ):
-    inp = layers.Input(shape=(None, input_n_mels), name="mel_input")  # (T, 80)
-    x = layers.Reshape((-1, input_n_mels, 1))(inp)
+    inputs = keras.Input(shape=(None, n_mels), name="mel_spectrogram")
 
-    # Initial Conv2D layers to extract local features
-    x = layers.Conv2D(64, kernel_size=(3,3), padding="same", activation="relu")(x)
-    x = layers.BatchNormalization()(x)
-    x = layers.SpatialDropout2D(dropout)(x)
+    # Positional Encoding
+    x = layers.Dense(d_model)(inputs)
 
-    x = layers.Conv2D(128, kernel_size=(3,3), padding="same", activation="relu")(x)
-    x = layers.BatchNormalization()(x)
-    x = layers.SpatialDropout2D(dropout)(x)
+    # Conformer Encoder Blocks
+    for _ in range(num_layers):
+        # Feed Forward Module (pre)
+        ff_pre = keras.Sequential([
+            layers.LayerNormalization(),
+            layers.Dense(ff_dim, activation="relu"),
+            layers.Dropout(dropout),
+            layers.Dense(d_model),
+            layers.Dropout(dropout)
+        ])
+        x1 = ff_pre(x)
 
-    # Flatten frequency axis
-    T = tf.shape(x)[1]
-    F = x.shape[2] * x.shape[3]
-    x = layers.Reshape((T, F))(x)
-    x = layers.Dense(d_model)(x)
+        # Multi-head Self Attention
+        attn = layers.LayerNormalization()(x)
+        attn = layers.MultiHeadAttention(num_heads=num_heads, key_dim=d_model // num_heads, dropout=dropout)(attn, attn)
+        attn = layers.Dropout(dropout)(attn)
+        x2 = x + 0.5 * x1 + attn  # Combine FF-pre and attention
 
-    # Conformer blocks
-    for _ in range(num_blocks):
-        x = conformer_block(x, d_model, num_heads, ff_dim, dropout)
+        # Convolution Module
+        conv = layers.LayerNormalization()(x2)
+        conv = layers.Conv1D(filters=2 * d_model, kernel_size=1, activation="gelu")(conv)
+        conv = layers.DepthwiseConv1D(kernel_size=15, padding="same")(conv)
+        conv = layers.BatchNormalization()(conv)
+        conv = layers.Activation("swish")(conv)
+        conv = layers.Conv1D(filters=d_model, kernel_size=1)(conv)
+        conv = layers.Dropout(dropout)(conv)
+        x3 = x2 + conv
 
-    x = layers.LayerNormalization(epsilon=1e-6)(x)
-    out = layers.TimeDistributed(layers.Dense(num_phonemes, activation="softmax"), name="phoneme_logits")(x)
+        # Feed Forward Module (post)
+        ff_post = keras.Sequential([
+            layers.LayerNormalization(),
+            layers.Dense(ff_dim, activation="relu"),
+            layers.Dropout(dropout),
+            layers.Dense(d_model),
+            layers.Dropout(dropout)
+        ])
+        x4 = x3 + 0.5 * ff_post(x3)
 
-    model = models.Model(inputs=inp, outputs=out, name="ConformerPhonemeSeg")
-    return model
+        # Residual
+        x = layers.LayerNormalization()(x4)
+
+    # Output classifier with L1/L2 regularization
+    outputs = layers.Dense(
+        n_classes,
+        activation="softmax",
+        name="phoneme_class",
+        kernel_regularizer=tf.keras.regularizers.L1L2(l1=l1, l2=l2)
+    )(x)
+
+    return keras.Model(inputs=inputs, outputs=outputs)
 

@@ -1,21 +1,44 @@
+# =============================
 # Percorsi principali
+# =============================
 dataset_dir: DataSet/cv-corpus-18.0-2024-06-14/it
 phonemized_dir: output/
 wav_output_dir: output/wav_trimmed/
 mel_output_dir: output/mel_segments/
+frame_targets_dir: output/frame_targets/
+model_output_dir: output/models/
 
+# =============================
 # Parametri audio / mel
-sr: 16000
-n_fft: 400
-hop_length: 160
-n_mels: 80
-top_db: 30  # trimming energia
+# =============================
+sr: 16000           # Sample rate
+n_fft: 400          # Finestra FFT (25 ms)
+hop_length: 160     # Hop length (10 ms)
+n_mels: 80          # Numero di bande Mel
+top_db: 30          # Soglia per trimming silenzio
 
-# Parametri per target frame-level
-phoneme_separator: "|"
-max_frames: null
-pad_mode: repeat
+# =============================
+# Parametri target fonemici
+# =============================
+phoneme_separator: "|"     # Separatore usato in phonemize.py
+max_frames: null           # Max lunghezza opzionale per padding
+pad_mode: repeat           # repeat | zero
+special_tokens_offset: 10  # Gli ID dei fonemi partono da 10
 
-# Parametri modello (opzionali)
+# =============================
+# Parametri modello
+# =============================
+num_classes: 128           # Numero totale di classi fonemiche (inclusi token speciali)
 label_smoothing: 0.0
+dropout: 0.3
+l1: 0.0
+l2: 0.0
+lr: 0.001                  # Learning rate
+
+# =============================
+# Parametri training
+# =============================
+batch_size: 32
+epochs: 50
+patience: 5
 

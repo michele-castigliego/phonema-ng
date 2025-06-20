@@ -13,7 +13,7 @@ def run_create(split, cfg):
         "python", "scripts/create_frame_targets.py",
         "--input_jsonl", os.path.join(cfg["phonemized_dir"], f"phonemized_{split}.jsonl"),
         "--mel_dir", os.path.join(cfg["mel_output_dir"], split),
-        "--output_dir", os.path.join(cfg["mel_output_dir"], f"{split}_targets")
+        "--output_dir", os.path.join(cfg["frame_targets_dir"], split)
     ]
     subprocess.run(cmd, check=True)
 

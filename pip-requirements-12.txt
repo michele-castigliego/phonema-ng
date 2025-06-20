@@ -7,3 +7,6 @@ pyyaml
 matplotlib
 num2words
 resampy
+tensorflow
+scikit-learn
+joblib

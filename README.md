@@ -10,6 +10,7 @@ Pipeline completa per la fonemizzazione, conversione audio, estrazione di mel-sp
 sudo add-apt-repository ppa:deadsnakes/ppa
 sudo apt update
 sudo apt install python3.11 python3.11-venv python3.11-dev
+sudo apt install python3.12 python3.12-venv python3.12-dev
 ```
 
 ---
@@ -22,7 +23,8 @@ sudo apt install python3.11 python3.11-venv python3.11-dev
 | scripts/convert_mp3_to_wav.py    | phonema-env-py12    | 3.12   |
 | scripts/extract_mels.py          | phonema-env-py12    | 3.12   |
 | scripts/create_frame_targets.py  | phonema-env-py11    | 3.11   |
-| scripts/train_model.py (esempio) | phonema-env-py11    | 3.11   |
+| scripts/train.py                 | phonema-env-py11    | 3.11   |
+| scripts/prepare_tf_dataset.py    | phonema-env-py11    | 3.11   |
 | tests/test_g2p.py                | phonema-env-py12    | 3.12   |
 
 ```bash
@@ -99,7 +101,10 @@ output/
 │   └── test/
 ├── train_index.csv
 ├── dev_index.csv
-└── test_index.csv
+├── test_index.csv
+├── models/
+│   ├── checkpoint/
+│   ├── training_log.csv
 ```
 
 ---
@@ -125,6 +130,23 @@ python scripts/extract_mels_all.py --num_workers 8
 ```bash
 python scripts/create_frame_targets_all.py
 ```
+
+---
+
+## 🧠 Training del modello
+
+```bash
+python scripts/train.py \
+  --config config.yaml \
+  --train_mel_dir output/mel_segments/train/ \
+  --train_target_dir output/frame_targets/train/ \
+  --dev_mel_dir output/mel_segments/dev/ \
+  --dev_target_dir output/frame_targets/dev/ \
+  --output_dir output/models/ \
+  --batch_size 32 --epochs 50 --patience 5
+```
+
+Il file `training_log.csv` verrà generato nella directory di output con le metriche di ogni epoca.
 
 ---
 
@@ -166,3 +188,11 @@ make
 
 L'eseguibile `extract_mels` accetta gli stessi parametri principali dello script Python.
 
+
+python scripts/create_frame_targets.py \
+  --input_jsonl output/phonemized_train.jsonl \
+  --mel_dir output/mel_segments/train \
+  --output_dir output/frame_targets/train
+
+
+python scripts/train.py   --config config.yaml   --train_mel_dir output/mel_segments/train/   --train_target_dir output/frame_targets/train/   --dev_mel_dir output/mel_segments/dev/   --dev_target_dir output/frame_targets/dev/   --output_dir output/models/   --batch_size 32 --epochs 50 --patience 5
