@@ -131,6 +131,11 @@ python scripts/extract_mels_all.py --num_workers 8
 python scripts/create_frame_targets_all.py
 ```
 
+### 5. Dataset shuffle
+```bash
+python scripts/create_shuffled_index_all.py
+```
+
 ---
 
 ## 🧠 Training del modello
@@ -189,10 +194,13 @@ make
 L'eseguibile `extract_mels` accetta gli stessi parametri principali dello script Python.
 
 
-python scripts/create_frame_targets.py \
-  --input_jsonl output/phonemized_train.jsonl \
+python tests/verify_data_integrity.py \
   --mel_dir output/mel_segments/train \
-  --output_dir output/frame_targets/train
+  --target_dir output/frame_targets/train
 
-
-python scripts/train.py   --config config.yaml   --train_mel_dir output/mel_segments/train/   --train_target_dir output/frame_targets/train/   --dev_mel_dir output/mel_segments/dev/   --dev_target_dir output/frame_targets/dev/   --output_dir output/models/   --batch_size 32 --epochs 50 --patience 5
+python scripts/train.py \
+  --train_mel_dir output/mel_segments/train/ \
+  --train_target_dir output/frame_targets/train/ \
+  --dev_mel_dir output/mel_segments/dev/ \
+  --dev_target_dir output/frame_targets/dev/ \
+  --output_dir output/models/
