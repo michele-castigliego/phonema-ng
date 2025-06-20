@@ -28,7 +28,7 @@ special_tokens_offset: 10  # Gli ID dei fonemi partono da 10
 # =============================
 # Parametri modello
 # =============================
-num_classes: 128           # Numero totale di classi fonemiche (inclusi token speciali)
+num_classes: 256           # Numero totale di classi fonemiche (inclusi token speciali)
 label_smoothing: 0.0
 dropout: 0.3
 l1: 0.0
