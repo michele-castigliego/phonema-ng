@@ -5,7 +5,9 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 
-def create_tf_dataset_from_index(index_csv_path, mel_dir, target_dir, batch_size=16, shuffle=False, shuffle_seed=42):
+def create_tf_dataset_from_index(index_csv_path, mel_dir, target_dir,
+                                 batch_size=32, shuffle=False, shuffle_seed=42,
+                                 max_frames=None):
     index_df = pd.read_csv(index_csv_path)
     audio_ids = index_df["audio_id"].tolist()
     mel_paths = [os.path.join(mel_dir, f"{aid}.npz") for aid in audio_ids]
@@ -19,12 +21,16 @@ def create_tf_dataset_from_index(index_csv_path, mel_dir, target_dir, batch_size
 
     def generator():
         for mel_path, target_path in zip(mel_paths, target_paths):
-            mel = np.load(mel_path)["mel"].astype(np.float32)
-            target = np.load(target_path).astype(np.int32)
+            mel = np.load(mel_path)["mel"]
+            if max_frames is not None and mel.shape[0] > max_frames:
+                continue
+            target = np.load(target_path)
             yield mel, target
 
-    # Determine n_mels only once
-    sample_mel = np.load(mel_paths[0])["mel"]
+    # Trova primo campione valido
+    first_valid_idx = next(i for i, path in enumerate(mel_paths)
+                           if max_frames is None or np.load(path)["mel"].shape[0] <= max_frames)
+    sample_mel = np.load(mel_paths[first_valid_idx])["mel"]
     n_mels = sample_mel.shape[1]
 
     output_signature = (
@@ -34,7 +40,6 @@ def create_tf_dataset_from_index(index_csv_path, mel_dir, target_dir, batch_size
 
     dataset = tf.data.Dataset.from_generator(generator, output_signature=output_signature)
 
-    dataset = dataset.map(lambda mel, tgt: (mel, tgt), num_parallel_calls=1)
     dataset = dataset.padded_batch(
         batch_size,
         padded_shapes=([None, n_mels], [None]),
@@ -42,7 +47,4 @@ def create_tf_dataset_from_index(index_csv_path, mel_dir, target_dir, batch_size
         drop_remainder=False
     )
 
-    dataset = dataset.prefetch(1)  # evita prefetch aggressivo
-
     return dataset
-
