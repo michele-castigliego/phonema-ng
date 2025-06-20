@@ -1,6 +1,8 @@
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
+from utils.positional_encoding import PositionalEncoding
+
 
 def build_phoneme_segmentation_model(
     n_mels=80,
@@ -15,8 +17,9 @@ def build_phoneme_segmentation_model(
 ):
     inputs = keras.Input(shape=(None, n_mels), name="mel_spectrogram")
 
-    # Positional Encoding
+    # Dense projection + Positional Encoding
     x = layers.Dense(d_model)(inputs)
+    x = PositionalEncoding(d_model)(x)
 
     # Conformer Encoder Blocks
     for _ in range(num_layers):
@@ -32,7 +35,11 @@ def build_phoneme_segmentation_model(
 
         # Multi-head Self Attention
         attn = layers.LayerNormalization()(x)
-        attn = layers.MultiHeadAttention(num_heads=num_heads, key_dim=d_model // num_heads, dropout=dropout)(attn, attn)
+        attn = layers.MultiHeadAttention(
+            num_heads=num_heads,
+            key_dim=d_model // num_heads,
+            dropout=dropout
+        )(attn, attn)
         attn = layers.Dropout(dropout)(attn)
         x2 = x + 0.5 * x1 + attn  # Combine FF-pre and attention
 
