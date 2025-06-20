@@ -21,7 +21,7 @@ top_db: 30          # Soglia per trimming silenzio
 # Parametri target fonemici
 # =============================
 phoneme_separator: "|"     # Separatore usato in phonemize.py
-max_frames: null           # Max lunghezza opzionale per padding
+max_frames: 1000           # Max lunghezza opzionale per padding
 pad_mode: repeat           # repeat | zero
 special_tokens_offset: 10  # Gli ID dei fonemi partono da 10
 
@@ -41,4 +41,5 @@ lr: 0.001                  # Learning rate
 batch_size: 32
 epochs: 50
 patience: 5
+
 

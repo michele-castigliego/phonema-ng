@@ -1,3 +1,4 @@
+import shutil
 import argparse
 import os
 import tensorflow as tf
@@ -19,9 +20,23 @@ def main():
     parser.add_argument("--batch_size", type=int, default=8)
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--patience", type=int, default=5)
+    parser.add_argument("--reset-output", action="store_true", help="Rimuovi contenuto della cartella di output all'avvio")
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
+    if args.reset_output and os.path.exists(args.output_dir):
+        print(f"⚠️  Pulizia directory output: {args.output_dir}")
+        shutil.rmtree(args.output_dir)
+    os.makedirs(args.output_dir, exist_ok=True)
+    if os.path.exists(args.output_dir):
+        print(f"⚠️  Pulizia directory output: {args.output_dir}")
+        shutil.rmtree(args.output_dir)
+    os.makedirs(args.output_dir, exist_ok=True)
+
+    # Imposta crescita graduale della memoria GPU
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    for gpu in gpus:
+        tf.config.experimental.set_memory_growth(gpu, True)
     config = load_config(args.config)
 
     print("📦 Caricamento dataset...")
@@ -84,4 +99,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 

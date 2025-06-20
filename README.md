@@ -198,6 +198,8 @@ python tests/verify_data_integrity.py \
   --mel_dir output/mel_segments/train \
   --target_dir output/frame_targets/train
 
+
+
 python scripts/train.py \
   --config config.yaml \
   --train_index output/train_index.csv \
@@ -206,5 +208,9 @@ python scripts/train.py \
   --dev_index output/dev_index.csv \
   --dev_mel_dir output/mel_segments/dev/ \
   --dev_target_dir output/frame_targets/dev/ \
-  --output_dir output/models/ \
-  --batch_size 8 --epochs 50 --patience 5
+  --output_dir output/models/run1/ \
+  --batch_size 8 \
+  --epochs 50 \
+  --patience 5 \
+  --reset-output
+
