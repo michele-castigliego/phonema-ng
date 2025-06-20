@@ -1,6 +1,7 @@
 import argparse
 import os
 import tensorflow as tf
+from tensorflow import keras
 from utils.config import load_config
 from utils.index_dataset import create_tf_dataset_from_index as create_dataset
 from phonema.model.conformer_model import build_phoneme_segmentation_model as build_model
@@ -8,10 +9,10 @@ from phonema.model.conformer_model import build_phoneme_segmentation_model as bu
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default="config.yaml")
-    parser.add_argument("--train_index", type=str, default="output/train_index.csv")
-    parser.add_argument("--dev_index", type=str, default="output/dev_index.csv")
+    parser.add_argument("--train_index", type=str, required=True)
     parser.add_argument("--train_mel_dir", type=str, required=True)
     parser.add_argument("--train_target_dir", type=str, required=True)
+    parser.add_argument("--dev_index", type=str, required=True)
     parser.add_argument("--dev_mel_dir", type=str, required=True)
     parser.add_argument("--dev_target_dir", type=str, required=True)
     parser.add_argument("--output_dir", type=str, required=True)
@@ -24,14 +25,8 @@ def main():
     config = load_config(args.config)
 
     print("📦 Caricamento dataset...")
-    train_dataset = create_dataset(
-        args.train_index, args.train_mel_dir, args.train_target_dir,
-        batch_size=args.batch_size, shuffle=False
-    )
-    dev_dataset = create_dataset(
-        args.dev_index, args.dev_mel_dir, args.dev_target_dir,
-        batch_size=args.batch_size, shuffle=False
-    )
+    train_dataset = create_dataset(args.train_index, args.train_mel_dir, args.train_target_dir, batch_size=args.batch_size, shuffle=True)
+    dev_dataset = create_dataset(args.dev_index, args.dev_mel_dir, args.dev_target_dir, batch_size=args.batch_size, shuffle=False)
 
     print("🧠 Creazione modello...")
     model = build_model(
@@ -46,25 +41,34 @@ def main():
         metrics=["accuracy"]
     )
 
-    # CALLBACKS
     checkpoint_dir = os.path.join(args.output_dir, "checkpoints")
     os.makedirs(checkpoint_dir, exist_ok=True)
 
-    callbacks = [
-        tf.keras.callbacks.ModelCheckpoint(
-            filepath=os.path.join(checkpoint_dir, "epoch_{epoch:02d}_val{val_loss:.4f}.keras"),
-            save_weights_only=False,
-            save_best_only=False
-        ),
-        tf.keras.callbacks.ModelCheckpoint(
-            filepath=os.path.join(args.output_dir, "best_model.keras"),
-            monitor="val_loss", save_best_only=True, save_weights_only=False, verbose=1
-        ),
-        tf.keras.callbacks.EarlyStopping(
-            monitor="val_loss", patience=args.patience, restore_best_weights=True, verbose=1
-        ),
-        tf.keras.callbacks.CSVLogger(os.path.join(args.output_dir, "training_log.csv"))
-    ]
+    checkpoint_all_cb = tf.keras.callbacks.ModelCheckpoint(
+        filepath=os.path.join(checkpoint_dir, "epoch_{epoch:02d}_val{val_loss:.4f}.keras"),
+        save_weights_only=False,
+        save_best_only=False,
+        verbose=0
+    )
+
+    checkpoint_best_cb = tf.keras.callbacks.ModelCheckpoint(
+        filepath=os.path.join(args.output_dir, "best_model.keras"),
+        monitor="val_loss",
+        save_best_only=True,
+        save_weights_only=False,
+        verbose=1
+    )
+
+    early_cb = tf.keras.callbacks.EarlyStopping(
+        monitor="val_loss",
+        patience=args.patience,
+        restore_best_weights=True,
+        verbose=1
+    )
+
+    csv_logger_cb = tf.keras.callbacks.CSVLogger(os.path.join(args.output_dir, "training_log.csv"))
+
+    callbacks = [checkpoint_all_cb, checkpoint_best_cb, early_cb, csv_logger_cb]
 
     print("🚀 Inizio training...")
     model.fit(
