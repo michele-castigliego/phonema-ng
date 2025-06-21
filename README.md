@@ -13,6 +13,10 @@ sudo apt install python3.11 python3.11-venv python3.11-dev
 sudo apt install python3.12 python3.12-venv python3.12-dev
 ```
 
+Il callback `CpuTemperatureMonitor` richiede la libreria `psutil`.
+È inclusa nel file `pip-requirements-12.txt` ma può essere installata anche con
+`pip install psutil`.
+
 ---
 
 ## 🧪 Ambienti Virtuali
@@ -148,7 +152,8 @@ python scripts/train.py \
   --dev_mel_dir output/mel_segments/dev/ \
   --dev_target_dir output/frame_targets/dev/ \
   --output_dir output/models/ \
-  --batch_size 32 --epochs 50 --patience 5 \
+  --batch_size 8 --epochs 50 --patience 5 \
+  --reset-output \ 
   --causal
 ```
 
@@ -211,11 +216,12 @@ python scripts/train.py \
   --dev_index output/dev_index.csv \
   --dev_mel_dir output/mel_segments/dev/ \
   --dev_target_dir output/frame_targets/dev/ \
-  --output_dir output/models/run1/ \
+  --output_dir output/models/ \
   --batch_size 8 \
   --epochs 50 \
   --patience 5 \
-  --reset-output
+  --reset-output \
+  --causal
 
 
 ### 6. Streaming Inference (`stream_inference.py`)

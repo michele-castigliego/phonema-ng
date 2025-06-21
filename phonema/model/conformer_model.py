@@ -36,22 +36,33 @@ def build_phoneme_segmentation_model(
 
         # Multi-head Self Attention
         attn = layers.LayerNormalization()(x)
-        attn = layers.MultiHeadAttention(
+        mha = layers.MultiHeadAttention(
             num_heads=num_heads,
             key_dim=d_model // num_heads,
-            dropout=dropout,
-            use_causal_mask=causal
-        )(attn, attn)
+            dropout=dropout
+        )
+        attn = mha(attn, attn, use_causal_mask=causal)
         attn = layers.Dropout(dropout)(attn)
         x2 = x + 0.5 * x1 + attn  # Combine FF-pre and attention
 
         # Convolution Module
         conv = layers.LayerNormalization()(x2)
         conv = layers.Conv1D(filters=2 * d_model, kernel_size=1, activation="gelu")(conv)
-        conv = layers.DepthwiseConv1D(
-            kernel_size=15,
-            padding="causal" if causal else "same"
-        )(conv)
+
+        # DepthwiseConv1D with causal padding (if needed)
+        if causal:
+            pad_len = 15 - 1  # kernel_size - 1
+            conv = layers.ZeroPadding1D(padding=(pad_len, 0))(conv)
+            conv = layers.DepthwiseConv1D(
+                kernel_size=15,
+                padding="valid"
+            )(conv)
+        else:
+            conv = layers.DepthwiseConv1D(
+                kernel_size=15,
+                padding="same"
+            )(conv)
+
         conv = layers.BatchNormalization()(conv)
         conv = layers.Activation("swish")(conv)
         conv = layers.Conv1D(filters=d_model, kernel_size=1)(conv)

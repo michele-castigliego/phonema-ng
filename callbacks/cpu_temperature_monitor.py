@@ -9,6 +9,7 @@ class CpuTemperatureMonitor(Callback):
         self.max_temp = max_temp
         self.check_interval = check_interval
         self.logger = logging.getLogger(__name__)
+        self._sensor_warning_emitted = False
 
     def on_train_batch_begin(self, batch, logs=None):
         temp = self.get_cpu_temperature()
@@ -21,11 +22,31 @@ class CpuTemperatureMonitor(Callback):
 
     def get_cpu_temperature(self):
         temps = psutil.sensors_temperatures()
-        if "coretemp" in temps:
-            return temps["coretemp"][0].current
-        elif temps:
-            return list(temps.values())[0][0].current
-        else:
-            self.logger.warning("⚠️ No CPU temperature sensor found.")
+
+        if not temps:
+            if not self._sensor_warning_emitted:
+                self.logger.warning("⚠️ No CPU temperature sensor found.")
+                self._sensor_warning_emitted = True
             return None
+
+        sensor_readings = []
+
+        if "coretemp" in temps:
+            sensor_readings.extend(
+                [t.current for t in temps["coretemp"] if hasattr(t, "current")]
+            )
+
+        if not sensor_readings:
+            for entries in temps.values():
+                sensor_readings.extend(
+                    [t.current for t in entries if hasattr(t, "current")]
+                )
+
+        if not sensor_readings:
+            if not self._sensor_warning_emitted:
+                self.logger.warning("⚠️ No CPU temperature sensor found.")
+                self._sensor_warning_emitted = True
+            return None
+
+        return max(sensor_readings)
 
