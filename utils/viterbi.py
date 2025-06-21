@@ -1,3 +1,5 @@
+import json
+import os
 import numpy as np
 
 
@@ -51,3 +53,69 @@ def viterbi_decode(logits: np.ndarray, transition_matrix: np.ndarray) -> np.ndar
 
     best_path.reverse()
     return np.array(best_path, dtype=np.int32)
+
+
+def build_viterbi_matrix(
+    phonemized_dir: str,
+    phoneme_map_path: str,
+    lang: str,
+    output_dir: str,
+    splits=("train", "dev", "test"),
+) -> np.ndarray:
+    """Create or update the transition matrix used by :func:`viterbi_decode`.
+
+    Parameters
+    ----------
+    phonemized_dir : str
+        Directory containing ``phonemized_<split>.jsonl`` files.
+    phoneme_map_path : str
+        Path to ``phoneme_to_index.json`` mapping file.
+    lang : str
+        Language code used to name the output matrix file.
+    output_dir : str
+        Directory where the resulting ``viterbi-matrix_<lang>.npy`` is saved.
+    splits : tuple of str, optional
+        Dataset splits to parse. Defaults to ``("train", "dev", "test")``.
+
+    Returns
+    -------
+    np.ndarray
+        The computed transition probability matrix.
+    """
+    with open(phoneme_map_path, "r", encoding="utf-8") as f:
+        phoneme_to_index = json.load(f)
+
+    num_classes = len(phoneme_to_index)
+
+    matrix_path = os.path.join(output_dir, f"viterbi-matrix_{lang}.npy")
+    if os.path.exists(matrix_path):
+        A = np.load(matrix_path)
+    else:
+        A = np.zeros((num_classes, num_classes), dtype=np.float32)
+
+    counts = np.zeros_like(A)
+
+    for split in splits:
+        file_path = os.path.join(phonemized_dir, f"phonemized_{split}.jsonl")
+        if not os.path.exists(file_path):
+            continue
+        with open(file_path, "r", encoding="utf-8") as f:
+            for line in f:
+                data = json.loads(line)
+                phonemes = data.get("phonemes", [])
+                ids = [phoneme_to_index[p] for p in phonemes if p in phoneme_to_index]
+                for i in range(1, len(ids)):
+                    A[ids[i - 1], ids[i]] += 1
+                    counts[ids[i - 1], ids[i]] += 1
+
+    for i in range(num_classes):
+        total = np.sum(counts[i])
+        if total > 0:
+            A[i] = A[i] / total
+        else:
+            A[i] = 0
+            A[i, i] = 1.0
+
+    os.makedirs(output_dir, exist_ok=True)
+    np.save(matrix_path, A)
+    return A
