@@ -214,3 +214,10 @@ python scripts/train.py \
   --patience 5 \
   --reset-output
 
+
+### 6. Streaming Inference (`stream_inference.py`)
+```bash
+python scripts/stream_inference.py \
+  --model output/models/best_model.keras \
+  --decode
+```
