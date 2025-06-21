@@ -43,5 +43,5 @@ lr: 0.001                  # Learning rate
 batch_size: 32
 epochs: 50
 patience: 5
-
+max_cpu_temperature: 90.0    # 🔥 Temperatura massima consentita (°C)
 

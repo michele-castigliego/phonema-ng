@@ -6,6 +6,7 @@ from tensorflow import keras
 from utils.config import load_config
 from utils.index_dataset import create_tf_dataset_from_index as create_dataset
 from phonema.model.conformer_model import build_phoneme_segmentation_model as build_model
+from callbacks.cpu_temperature_monitor import CpuTemperatureMonitor
 
 def main():
     parser = argparse.ArgumentParser()
@@ -20,15 +21,10 @@ def main():
     parser.add_argument("--batch_size", type=int, default=8)
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--patience", type=int, default=5)
-    parser.add_argument("--reset-output", action="store_true", help="Rimuovi contenuto della cartella di output all'avvio")
+    parser.add_argument("--reset-output", action="store_true", help="Rimuove il contenuto della cartella di output all'avvio")
     args = parser.parse_args()
 
-    os.makedirs(args.output_dir, exist_ok=True)
     if args.reset_output and os.path.exists(args.output_dir):
-        print(f"⚠️  Pulizia directory output: {args.output_dir}")
-        shutil.rmtree(args.output_dir)
-    os.makedirs(args.output_dir, exist_ok=True)
-    if os.path.exists(args.output_dir):
         print(f"⚠️  Pulizia directory output: {args.output_dir}")
         shutil.rmtree(args.output_dir)
     os.makedirs(args.output_dir, exist_ok=True)
@@ -37,11 +33,14 @@ def main():
     gpus = tf.config.experimental.list_physical_devices('GPU')
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu, True)
+
     config = load_config(args.config)
 
     print("📦 Caricamento dataset...")
-    train_dataset = create_dataset(args.train_index, args.train_mel_dir, args.train_target_dir, batch_size=args.batch_size, shuffle=True)
-    dev_dataset = create_dataset(args.dev_index, args.dev_mel_dir, args.dev_target_dir, batch_size=args.batch_size, shuffle=False)
+    train_dataset = create_dataset(args.train_index, args.train_mel_dir, args.train_target_dir,
+                                   batch_size=args.batch_size, shuffle=True)
+    dev_dataset = create_dataset(args.dev_index, args.dev_mel_dir, args.dev_target_dir,
+                                 batch_size=args.batch_size, shuffle=False)
 
     print("🧠 Creazione modello...")
     model = build_model(
@@ -82,8 +81,11 @@ def main():
     )
 
     csv_logger_cb = tf.keras.callbacks.CSVLogger(os.path.join(args.output_dir, "training_log.csv"))
-
-    callbacks = [checkpoint_all_cb, checkpoint_best_cb, early_cb, csv_logger_cb]
+    cpu_temp_cb = CpuTemperatureMonitor(
+        max_temp=config.get("max_cpu_temperature", 75.0),
+        check_interval=60
+    )
+    callbacks = [checkpoint_all_cb, checkpoint_best_cb, early_cb, csv_logger_cb, cpu_temp_cb]
 
     print("🚀 Inizio training...")
     model.fit(
@@ -99,5 +101,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 

@@ -10,3 +10,4 @@ resampy
 tensorflow
 scikit-learn
 joblib
+psutil
