@@ -6,6 +6,12 @@ import numpy as np
 import sounddevice as sd
 from tensorflow import keras
 
+from phonema.model.conformer_model import (
+    StreamingConformerModel,
+    StreamingConformerBlock,
+    PositionalEncoding,
+)
+
 from utils.config import load_config
 from utils.audio import chunk_to_mel_frames
 
@@ -33,7 +39,12 @@ def load_phoneme_map(path: str):
 
 def main(args):
     config = load_config(args.config)
-    model = keras.models.load_model(args.model)
+    custom_objects = {
+        "StreamingConformerModel": StreamingConformerModel,
+        "StreamingConformerBlock": StreamingConformerBlock,
+        "PositionalEncoding": PositionalEncoding,
+    }
+    model = keras.models.load_model(args.model, custom_objects=custom_objects)
 
     idx_to_phoneme = None
     if args.decode:
@@ -45,11 +56,10 @@ def main(args):
     n_mels = config["n_mels"]
 
     chunk_samples = int(sr * args.chunk_duration)
-    mel_window = []
-    max_window = args.window
     processed_frames = 0
     audio_buffer = np.array([], dtype=np.float32)
     all_probs = []
+    caches = [None] * len(model.blocks)
 
     print("🎙️  Avvio streaming... (Ctrl+C per terminare)")
     try:
@@ -63,17 +73,22 @@ def main(args):
             if len(new_mel) == 0:
                 continue
 
-            mel_window.extend(new_mel)
-            if len(mel_window) > max_window:
-                mel_window = mel_window[-max_window:]
+            mel_arr = np.array(new_mel, dtype=np.float32)
+            preds, caches = model(mel_arr[None, ...], cache=caches, training=False)
+            preds = preds.numpy()[0]
+            all_probs.append(preds)
 
-            window_arr = np.array(mel_window, dtype=np.float32)
-            preds = model(window_arr[None, ...], training=False).numpy()[0]
-            new_probs = preds[-len(new_mel):]
-            all_probs.append(new_probs)
+            # Optional cache trimming
+            if args.window:
+                for c in caches:
+                    if c is None:
+                        continue
+                    if c["k"].shape[1] > args.window:
+                        c["k"] = c["k"][:, -args.window:, :]
+                        c["v"] = c["v"][:, -args.window:, :]
 
             if idx_to_phoneme:
-                phones = [idx_to_phoneme.get(int(np.argmax(p)), "?") for p in new_probs]
+                phones = [idx_to_phoneme.get(int(np.argmax(p)), "?") for p in preds]
                 print(" ".join(phones))
     except KeyboardInterrupt:
         pass
@@ -91,7 +106,7 @@ if __name__ == "__main__":
     parser.add_argument("--chunk-duration", type=float, default=0.5,
                         help="Audio chunk duration in seconds")
     parser.add_argument("--window", type=int, default=160,
-                        help="Number of mel frames in the sliding window")
+                        help="Maximum length of the attention cache")
     parser.add_argument("--decode", action="store_true",
                         help="Decode predictions to phonemes")
     parser.add_argument("--save-probs", type=str, default=None,
