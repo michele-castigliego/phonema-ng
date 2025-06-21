@@ -26,6 +26,10 @@ phoneme_separator: "|"     # Separatore usato in phonemize.py
 max_frames: 1000           # Max lunghezza opzionale per padding
 pad_mode: repeat           # repeat | zero
 special_tokens_offset: 10  # Gli ID dei fonemi partono da 10
+special_tokens:
+  - "<PAD>"
+  - "<SIL>"
+  - "<START>"
 
 # =============================
 # Parametri modello

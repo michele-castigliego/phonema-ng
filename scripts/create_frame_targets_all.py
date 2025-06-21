@@ -43,7 +43,11 @@ def process_split(split, config):
         mel = np.load(npz_path)["mel"]
         sample = data_by_base[base]
         phonemes = [ph for ph in sample["phonemes"] if not ph.startswith("<LANG:")]
-        phoneme_to_index = update_phoneme_mapping(phonemes, config["phoneme_map_path"])
+        phoneme_to_index = update_phoneme_mapping(
+            phonemes,
+            config["phoneme_map_path"],
+            config.get("special_tokens")
+        )
 
         target = assign_targets_uniformly(mel.shape[0], phonemes, phoneme_to_index)
         out_path = os.path.join(output_dir, f"{base}.npy")

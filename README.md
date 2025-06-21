@@ -79,6 +79,11 @@ top_db: 30
 phoneme_separator: "|"
 max_frames: null
 pad_mode: repeat
+special_tokens_offset: 10
+special_tokens:
+  - "<PAD>"
+  - "<SIL>"
+  - "<START>"
 
 label_smoothing: 0.0
 ```
