@@ -1,4 +1,4 @@
-# utils/index_dataset.py
+# Dataset utilities
 
 import os
 import pandas as pd
@@ -6,6 +6,23 @@ import numpy as np
 import tensorflow as tf
 
 def create_tf_dataset_from_index(index_csv_path, mel_dir, target_dir, batch_size=32, shuffle=False, shuffle_seed=42):
+    """Create a tf.data.Dataset based on an index CSV.
+
+    Parameters
+    ----------
+    index_csv_path : str
+        Path to the CSV file containing an ``audio_id`` column.
+    mel_dir : str
+        Directory containing ``<audio_id>.npz`` files with a ``mel`` array.
+    target_dir : str
+        Directory containing ``<audio_id>.npy`` target files.
+    batch_size : int, optional
+        Number of samples per batch.
+    shuffle : bool, optional
+        Whether to shuffle the dataset before iteration.
+    shuffle_seed : int, optional
+        Seed for reproducible shuffling.
+    """
     index_df = pd.read_csv(index_csv_path)
     audio_ids = index_df["audio_id"].tolist()
     mel_paths = [os.path.join(mel_dir, f"{aid}.npz") for aid in audio_ids]

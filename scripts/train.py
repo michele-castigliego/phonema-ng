@@ -4,7 +4,7 @@ import os
 import tensorflow as tf
 from tensorflow import keras
 from utils.config import load_config
-from utils.index_dataset import create_tf_dataset_from_index as create_dataset
+from utils.dataset import create_tf_dataset_from_index as create_dataset
 from phonema.model.conformer_model import build_phoneme_segmentation_model as build_model
 from callbacks.cpu_temperature_monitor import CpuTemperatureMonitor
 
