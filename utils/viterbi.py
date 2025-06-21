@@ -119,3 +119,34 @@ def build_viterbi_matrix(
     os.makedirs(output_dir, exist_ok=True)
     np.save(matrix_path, A)
     return A
+
+
+
+def causal_viterbi_decode(logits: np.ndarray, transition_matrix: np.ndarray) -> np.ndarray:
+    """Greedy causal Viterbi decoder (online).
+
+    Parameters
+    ----------
+    logits : np.ndarray
+        Array of shape (T, num_states), unnormalized log-probabilities per frame.
+    transition_matrix : np.ndarray
+        Matrix (num_states, num_states), transition scores.
+
+    Returns
+    -------
+    np.ndarray
+        Sequence of most probable states decoded in streaming.
+    """
+    T, N = logits.shape
+    decoded = []
+    prev_state = np.argmax(logits[0])
+    decoded.append(prev_state)
+
+    log_trans = np.log(np.maximum(transition_matrix, 1e-12))  # avoid log(0)
+    for t in range(1, T):
+        scores = logits[t] + log_trans[prev_state]
+        prev_state = np.argmax(scores)
+        decoded.append(prev_state)
+
+    return np.array(decoded)
+
