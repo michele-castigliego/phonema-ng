@@ -1,4 +1,3 @@
-
 # PHONEMA - Riconoscimento Fonemico Frame-Level
 
 Pipeline completa per la fonemizzazione, conversione audio, estrazione di mel-spectrogrammi e generazione dei target fonemici frame-level a partire da Common Voice.
@@ -79,11 +78,6 @@ top_db: 30
 phoneme_separator: "|"
 max_frames: null
 pad_mode: repeat
-special_tokens_offset: 10
-special_tokens:
-  - "<PAD>"
-  - "<SIL>"
-  - "<START>"
 
 label_smoothing: 0.0
 ```
@@ -92,7 +86,8 @@ label_smoothing: 0.0
 
 ## 📁 Output directory
 
-(output/)
+```
+output/
 ├── phonemized_train.jsonl
 ├── phonemized_dev.jsonl
 ├── phonemized_test.jsonl
@@ -114,6 +109,7 @@ label_smoothing: 0.0
 ├── models/
 │   ├── checkpoint/
 │   ├── training_log.csv
+```
 
 ---
 
@@ -122,45 +118,35 @@ label_smoothing: 0.0
 ### 1. Fonemizzazione (`phonemize_all.py`)
 ```bash
 python scripts/phonemize_all.py
+
+### 2. Costruzione/aggiornamento matrice di transizione Viterbi (`viterbi_matrix.py`)
+```bash
+python scripts/viterbi_matrix.py \
+  --phonemized_dir output \
+  --phoneme_map_path output/phoneme_to_index.json \
+  --lang it \
+  --output_dir output
+```
 ```
 
-### 2. Conversione MP3 → WAV + trimming (`convert_mp3_to_wav_all.py`)
+### 3. Conversione MP3 → WAV + trimming (`convert_mp3_to_wav_all.py`)
 ```bash
 python scripts/convert_mp3_to_wav_all.py --num_workers 8
 ```
 
-### 3. Estrazione dei mel-spectrogrammi (`extract_mels_all.py`)
+### 4. Estrazione dei mel-spectrogrammi (`extract_mels_all.py`)
 ```bash
 python scripts/extract_mels_all.py --num_workers 8
 ```
 
-### 4. Generazione target fonemici (`create_frame_targets_all.py`)
+### 5. Generazione target fonemici (`create_frame_targets_all.py`)
 ```bash
 python scripts/create_frame_targets_all.py
 ```
 
-### 5. Dataset shuffle
+### 6. Dataset shuffle
 ```bash
 python scripts/create_shuffled_index_all.py
-```
-
-### 6. Costruzione matrice di transizione Viterbi
-```bash
-python scripts/viterbi_matrix.py \
-  --target_dir output/frame_targets \
-  --lang it \
-  --output_dir output \
-  --num_classes 256
-```
-
-### 7. Test di inferenza
-```bash
-python scripts/test_inference.py \
-  --model output/models/best_model.h5 \
-  --mel_dir output/mel_segments/test \
-  --target_dir output/frame_targets/test \
-  --phoneme_map output/phoneme_to_index.json \
-  --viterbi_matrix output/viterbi-matrix_it.npy
 ```
 
 ---
@@ -176,9 +162,13 @@ python scripts/train.py \
   --dev_target_dir output/frame_targets/dev/ \
   --output_dir output/models/ \
   --batch_size 8 --epochs 50 --patience 5 \
-  --reset-output \
+  --reset-output \ 
   --causal
 ```
+
+Usa l'opzione `--causal` per abilitare una configurazione compatibile con lo streaming.
+
+Il file `training_log.csv` verrà generato nella directory di output con le metriche di ogni epoca.
 
 ---
 
@@ -218,15 +208,49 @@ cmake ..
 make
 ```
 
----
+L'eseguibile `extract_mels` accetta gli stessi parametri principali dello script Python.
 
-## 📁 Utility
 
+python tests/verify_data_integrity.py \
+  --mel_dir output/mel_segments/train \
+  --target_dir output/frame_targets/train
+
+
+
+python scripts/train.py \
+  --config config.yaml \
+  --train_index output/train_index.csv \
+  --train_mel_dir output/mel_segments/train/ \
+  --train_target_dir output/frame_targets/train/ \
+  --dev_index output/dev_index.csv \
+  --dev_mel_dir output/mel_segments/dev/ \
+  --dev_target_dir output/frame_targets/dev/ \
+  --output_dir output/models/ \
+  --batch_size 8 \
+  --epochs 50 \
+  --patience 5 \
+  --reset-output \
+  --causal
+
+
+### 7. Streaming Inference (`stream_inference.py`)
+```bash
+python scripts/stream_inference.py \
+  --model output/models/best_model.keras \
+  --decode
 ```
-utils/
-└── viterbi.py            # Decoder Viterbi
-scripts/
-└── build_transition_matrix.py  # Generatore matrice Viterbi
-└── test_inference.py           # Script valutazione inferenza
+Il modello deve essere stato addestrato con l'opzione `--causal` per garantire uno streaming corretto.
+
+
+### Test di inferenza (`test_inference.py`)
+```bash
+python scripts/test_inference.py \
+  --model output/models/best_model.h5 \
+  --mel_dir output/mel_segments/test \
+  --target_dir output/frame_targets/test \
+  --phoneme_map output/phoneme_to_index.json \
+  --viterbi_matrix output/viterbi-matrix_it.npy
 ```
+Se il file `--viterbi_matrix` è presente, viene utilizzato il decoder Viterbi.
+Altrimenti viene usato `argmax` frame per frame.
 
