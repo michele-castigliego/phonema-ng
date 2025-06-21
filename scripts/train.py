@@ -22,6 +22,7 @@ def main():
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--patience", type=int, default=5)
     parser.add_argument("--reset-output", action="store_true", help="Rimuove il contenuto della cartella di output all'avvio")
+    parser.add_argument("--causal", action="store_true", help="Usa il modello in modalit\u00e0 causale per lo streaming")
     args = parser.parse_args()
 
     if args.reset_output and os.path.exists(args.output_dir):
@@ -46,7 +47,8 @@ def main():
     model = build_model(
         n_mels=config["n_mels"],
         n_classes=config["num_classes"],
-        dropout=config.get("dropout", 0.3)
+        dropout=config.get("dropout", 0.3),
+        causal=args.causal
     )
 
     model.compile(

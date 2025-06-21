@@ -148,8 +148,11 @@ python scripts/train.py \
   --dev_mel_dir output/mel_segments/dev/ \
   --dev_target_dir output/frame_targets/dev/ \
   --output_dir output/models/ \
-  --batch_size 32 --epochs 50 --patience 5
+  --batch_size 32 --epochs 50 --patience 5 \
+  --causal
 ```
+
+Usa l'opzione `--causal` per abilitare una configurazione compatibile con lo streaming.
 
 Il file `training_log.csv` verrà generato nella directory di output con le metriche di ogni epoca.
 
@@ -221,3 +224,4 @@ python scripts/stream_inference.py \
   --model output/models/best_model.keras \
   --decode
 ```
+Il modello deve essere stato addestrato con l'opzione `--causal` per garantire uno streaming corretto.

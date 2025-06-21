@@ -13,7 +13,8 @@ def build_phoneme_segmentation_model(
     num_layers=4,
     dropout=0.1,
     l1=0.0,
-    l2=0.0
+    l2=0.0,
+    causal=False
 ):
     inputs = keras.Input(shape=(None, n_mels), name="mel_spectrogram")
 
@@ -38,7 +39,8 @@ def build_phoneme_segmentation_model(
         attn = layers.MultiHeadAttention(
             num_heads=num_heads,
             key_dim=d_model // num_heads,
-            dropout=dropout
+            dropout=dropout,
+            use_causal_mask=causal
         )(attn, attn)
         attn = layers.Dropout(dropout)(attn)
         x2 = x + 0.5 * x1 + attn  # Combine FF-pre and attention
@@ -46,7 +48,10 @@ def build_phoneme_segmentation_model(
         # Convolution Module
         conv = layers.LayerNormalization()(x2)
         conv = layers.Conv1D(filters=2 * d_model, kernel_size=1, activation="gelu")(conv)
-        conv = layers.DepthwiseConv1D(kernel_size=15, padding="same")(conv)
+        conv = layers.DepthwiseConv1D(
+            kernel_size=15,
+            padding="causal" if causal else "same"
+        )(conv)
         conv = layers.BatchNormalization()(conv)
         conv = layers.Activation("swish")(conv)
         conv = layers.Conv1D(filters=d_model, kernel_size=1)(conv)
